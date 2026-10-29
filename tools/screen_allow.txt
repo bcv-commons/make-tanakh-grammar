@@ -1,0 +1,20 @@
+# Words that tools/screen.py admits although the Kuni NT uses them: names and forms admitted on purpose, each with its
+# reason. Keep it short; a Kuni word form goes here only when it is a fact about the language we publish anyway (the
+# store on bcv-commons/language-analysis), never a piece of the text.
+kuni        # the language's name
+tanakh      # the project's name
+noqa        # flake8's marker
+evezøza     # the team's decided form of the divine name (store, team-input.md); the Step A scorers' TEAM map
+yawe        # the draft form the team replaced by evezøza (same TEAM map)
+yesu        # the name form of Jesus (a name; the store has it): lab/split/export_split.py's hyphen-word example
+mbumbukiam  # the Kuni NT's title, in its credit line (research notes)
+manqat      # (title)
+mbomambaqape  # (title)
+ganda       # Luganda (English prose)
+tang        # a surname (English prose)
+prov        # book abbreviations (English prose)
+josh
+deut
+
+# Files whose Hebrew is admitted on purpose (screened by hand):
+hebrew-ok: lab/rules/data/hebnt_func.txt   # function words derived from the Salkinson-Ginsburg Hebrew NT (public domain)

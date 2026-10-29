@@ -1,0 +1,6 @@
+#!/bin/bash
+# Refuse a commit that holds protected text or data (tools/screen.py). Enable once per clone:
+#   git config core.hooksPath .githooks
+cd "$(git rev-parse --show-toplevel)" || exit 1
+. ./env.sh
+exec /usr/bin/python3 tools/screen.py --staged

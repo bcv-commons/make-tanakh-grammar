@@ -1,0 +1,23 @@
+# An allowlist: this repo is public, the texts it learns from are not (RELATIONS.md, section 6). Everything is ignored
+# except code, docs and reports, the licences and the free derived lists below; anything new stays local until it is
+# admitted here on purpose. The pre-commit hook (tools/screen.py) screens what is admitted.
+*
+!*/
+!*.py
+!*.sh
+!*.md
+!/LICENSE
+!/LICENSE-docs
+!/.gitignore
+!/.githooks/
+!/.githooks/*
+!/tools/screen_allow.txt
+# function words derived from free alignments (never hebm95_func.txt: HEBM95 is © Bible Society in Israel)
+!/lab/rules/data/dan_func.txt
+!/lab/rules/data/vamvas_func.txt
+!/lab/rules/data/hebnt_func.txt
+
+# never, even where a pattern above admits it
+/private/
+/CLAUDE.local.md
+__pycache__/
