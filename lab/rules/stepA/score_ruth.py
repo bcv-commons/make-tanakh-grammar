@@ -33,9 +33,39 @@ BOOK = os.environ.get("STEPA_BOOK", "RUT")
 NCH = {"RUT": 4, "JON": 4}[BOOK]
 HUMAN = os.path.join(R, "import/non-free/kvg/KVG-KuNT/text", BOOK.lower() + "%03d.txt")
 DRAFT = os.path.join(os.environ.get("STEPA_DRAFT") or os.path.join(R, "export/kvg/kvg_BSB/_eval/ruth-test"), BOOK.lower() + "%03d.txt")
-# the team's later decisions that the older human text predates (export/kvg/kvg_BSB/wiki/team-input.md): the human word is
-# read as the decided one. Yawe -> Evezøza: "Evezøza everywhere" (the yahweh question, answers of 2026-10-26)
-TEAM = {"yawe": "evezøza"}
+# the team's later decisions that the older human text predates: the human word is read as the decided one. From the store
+# (team_map); CONFIRMED stands in for a team entry that does not name what it replaces yet
+STORE = os.path.join(R, "export/kvg/kvg_BSB/profile")
+CONFIRMED = {"name:yahweh.team": ["Yawe"]}   # "Evezøza everywhere" (the yahweh question, answers of 2026-10-26)
+
+
+def team_map(store=STORE, confirmed=CONFIRMED):
+    """({human word: decided word}, [applied entry ids]) from the store's team decisions (method team-decision) that name the
+    forms of the published text they overrule ("replaces": [form, ...]); a decision without the field counts only where
+    CONFIRMED names it. The scorer maps word for word: a phrase on either side is left out, with a warning."""
+    es = []
+    for f in ("observations.json", "decisions.json"):
+        fp = os.path.join(store, f)
+        if os.path.exists(fp):
+            es += json.load(open(fp, encoding="utf-8")).get("entries", [])
+    out, used = {}, []
+    for e in es:
+        if e.get("method") != "team-decision" or e.get("status") == "superseded":
+            continue
+        old = e.get("replaces") or confirmed.get(e["id"])
+        if not old:
+            continue
+        new = [t.lower() for t in F.tokenize(e.get("value") or "")]
+        for o in old:
+            ot = [t.lower() for t in F.tokenize(o)]
+            if len(ot) != 1 or len(new) != 1:
+                print(f"team_map: {e['id']}: {o!r} -> {e.get('value')!r} is a phrase; left out", file=sys.stderr); continue
+            out[ot[0]] = new[0]
+        used.append(e["id"])
+    return out, used
+
+
+TEAM, TEAM_IDS = team_map()
 BOOKS = {"RUT": "RUT_e9d22404", "JON": "JON_8829f4c6"}
 STOPWORDS_REV = "976ccfdff0d16de6e37cd7c4c5cbe1b0d5f43b9a"
 
@@ -167,7 +197,8 @@ def main(a):
              "(links: 5of5 = steady: the early delivery's 5-of-5 links, or for v1.1 the links its whole and morphed layers share"
              + (", and the early delivery too" if os.environ.get("STEPA_STEADY") == "all3" else "") + ")",
              f"verses {len(vs)}; function words: {len(FUNC)} types; chrF (summary, over verses as in the engine) {chrf:.1f}",
-             f"function words P {fe_tp / max(1, fe_n):.3f}  R {fe_tp / max(1, fr_n):.3f}", ""]
+             f"function words P {fe_tp / max(1, fe_n):.3f}  R {fe_tp / max(1, fr_n):.3f}",
+             f"team map (the human word read as the team's): {', '.join(TEAM_IDS) or 'none'}", ""]
     for sub in ("all", "5of5"):
         t = taus[sub]
         lines.append(f"## links: {sub}")
