@@ -260,7 +260,7 @@ def main():
     lang = pname.split("/")[0]
     rules = []; tgt, eng = target_vocab(pname)
     L = [f"# Target module: {lang}", "",
-         f"From the bsb-add-books store `{pname}`, {datetime.date.today()}. One line per rule: [id, status, method]. "
+         f"From the make-tanakh store `{pname}`, {datetime.date.today()}. One line per rule: [id, status, method]. "
          "`team-decision` is the translators'; `corpus-*` was learned from the text and its alignment (a hypothesis); "
          "`project-decision` the project's. A line here overrides the source module. The unit is the clause, never the verse "
          "(`CLAUSES.md`). An aligner's short form is `jev.md`; the same rules for tools are in `rules.json`.", ""]

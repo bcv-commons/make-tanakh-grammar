@@ -16,6 +16,8 @@
 !/lab/rules/data/dan_func.txt
 !/lab/rules/data/vamvas_func.txt
 !/lab/rules/data/hebnt_func.txt
+# the contract test's expected schemas, counts and hashes (no text)
+!/lab/contract/expected.json
 
 # never, even where a pattern above admits it
 /private/

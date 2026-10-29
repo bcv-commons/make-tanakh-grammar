@@ -1,0 +1,612 @@
+{
+ "work repo": "3756bd4 2026-10-29",
+ "checks": {
+  "toolkit API": {
+   "format": {
+    "full_align": [],
+    "morphs": [],
+    "grammar": [],
+    "langtools": [],
+    "vrs": []
+   },
+   "data": {}
+  },
+  "tokenizer v2, text hash, parse": {
+   "format": {
+    "tokens": [
+     [
+      "Æblet",
+      "faldt",
+      "ned",
+      "og",
+      "så",
+      "Ja",
+      "æbler",
+      "ø",
+      "boer"
+     ],
+     [
+      "Anne",
+      "Marie",
+      "tolv"
+     ],
+     [
+      "λόγος",
+      "ἐν",
+      "ἀρχῇ",
+      "καὶ"
+     ],
+     [
+      "can",
+      "t",
+      "stop",
+      "now"
+     ]
+    ],
+    "text_hash": "fa44a572c423f08ebd481dbcbebf9c25473e1aadbfe32ad2fc455a429288cd92",
+    "parse": {
+     "1": [
+      2,
+      3,
+      4,
+      7
+     ],
+     "3": [
+      5
+     ]
+    }
+   },
+   "data": {}
+  },
+  "vrs.to_bsb": {
+   "format": {
+    "map": [
+     [
+      "jol 3:1",
+      [
+       2,
+       28
+      ]
+     ],
+     [
+      "jol 3:2",
+      [
+       2,
+       29
+      ]
+     ],
+     [
+      "jol 3:3",
+      [
+       2,
+       30
+      ]
+     ],
+     [
+      "jol 3:4",
+      [
+       2,
+       31
+      ]
+     ],
+     [
+      "jol 3:5",
+      [
+       2,
+       32
+      ]
+     ],
+     [
+      "mal 3:18",
+      [
+       3,
+       18
+      ]
+     ],
+     [
+      "mal 3:19",
+      [
+       4,
+       1
+      ]
+     ],
+     [
+      "mal 3:20",
+      [
+       4,
+       2
+      ]
+     ],
+     [
+      "mal 3:21",
+      [
+       4,
+       3
+      ]
+     ],
+     [
+      "mal 3:22",
+      [
+       4,
+       4
+      ]
+     ],
+     [
+      "mal 3:23",
+      [
+       4,
+       5
+      ]
+     ],
+     [
+      "mal 3:24",
+      [
+       4,
+       6
+      ]
+     ],
+     [
+      "gen 32:1",
+      [
+       31,
+       55
+      ]
+     ],
+     [
+      "gen 32:2",
+      [
+       32,
+       1
+      ]
+     ],
+     [
+      "gen 32:33",
+      [
+       32,
+       32
+      ]
+     ],
+     [
+      "psa 3:1",
+      [
+       3,
+       "title"
+      ]
+     ],
+     [
+      "psa 3:2",
+      [
+       3,
+       1
+      ]
+     ],
+     [
+      "psa 3:9",
+      [
+       3,
+       8
+      ]
+     ],
+     [
+      "num 17:1",
+      [
+       16,
+       36
+      ]
+     ],
+     [
+      "num 17:15",
+      [
+       16,
+       50
+      ]
+     ],
+     [
+      "num 17:16",
+      [
+       17,
+       1
+      ]
+     ],
+     [
+      "num 17:28",
+      [
+       17,
+       13
+      ]
+     ],
+     [
+      "1ki 5:1",
+      [
+       4,
+       21
+      ]
+     ],
+     [
+      "1ki 5:14",
+      [
+       4,
+       34
+      ]
+     ],
+     [
+      "1ki 5:15",
+      [
+       5,
+       1
+      ]
+     ],
+     [
+      "1ki 5:32",
+      [
+       5,
+       18
+      ]
+     ]
+    ]
+   },
+   "data": {}
+  },
+  "orig/grc.sqlite": {
+   "format": {
+    "schema": {
+     "bsb": [
+      "key",
+      "positions"
+     ],
+     "map": [
+      "edition",
+      "book",
+      "ch",
+      "v",
+      "pos",
+      "key",
+      "how"
+     ],
+     "meta": [
+      "name",
+      "value"
+     ],
+     "nodes": [
+      "id",
+      "book",
+      "ch",
+      "v",
+      "parent",
+      "class",
+      "rule",
+      "role",
+      "head",
+      "clausetype",
+      "first",
+      "last"
+     ],
+     "tokens": [
+      "key",
+      "book",
+      "ch",
+      "v",
+      "word",
+      "n",
+      "kind",
+      "ord",
+      "text",
+      "after",
+      "lemma",
+      "normalized",
+      "strong",
+      "class",
+      "type",
+      "morph",
+      "gcase",
+      "number",
+      "gender",
+      "tense",
+      "voice",
+      "mood",
+      "person",
+      "degree",
+      "role",
+      "gloss",
+      "domain",
+      "ln",
+      "discontinuous",
+      "node",
+      "clause"
+     ]
+    }
+   },
+   "data": {
+    "version": "8423afe47b9e8f24b7772e808af45c7159a6fe7e",
+    "MRK 1 tokens": [
+     701,
+     "6c0f8f15efe6e1a0"
+    ],
+    "MRK 1 nodes": [
+     536,
+     "a8c50d425387c903"
+    ]
+   }
+  },
+  "orig/heb.sqlite": {
+   "format": {
+    "schema": {
+     "bsb": [
+      "key",
+      "positions"
+     ],
+     "meta": [
+      "name",
+      "value"
+     ],
+     "nodes": [
+      "id",
+      "book",
+      "ch",
+      "v",
+      "parent",
+      "class",
+      "rule",
+      "role",
+      "head",
+      "clausetype",
+      "first",
+      "last"
+     ],
+     "tokens": [
+      "key",
+      "book",
+      "ch",
+      "v",
+      "word",
+      "n",
+      "kind",
+      "ord",
+      "text",
+      "after",
+      "lemma",
+      "lexeme",
+      "stronglemma",
+      "class",
+      "pos",
+      "morph",
+      "type",
+      "stem",
+      "person",
+      "gender",
+      "number",
+      "state",
+      "role",
+      "gloss",
+      "english",
+      "translit",
+      "greek",
+      "greekstrong",
+      "sdbh",
+      "lexdomain",
+      "coredomain",
+      "sensenumber",
+      "lang",
+      "node",
+      "clause"
+     ]
+    }
+   },
+   "data": {
+    "version": "47db250bd55d0d8577f2a94fba114ef16c35b23c",
+    "RUT 1 tokens": [
+     513,
+     "4ed54f65374f36d3"
+    ],
+    "RUT 1 nodes": [
+     345,
+     "8c255144fbc3c1d6"
+    ]
+   }
+  },
+  "index RUT": {
+   "format": {
+    "keys": {
+     "dict": {
+      "list": "str"
+     }
+    },
+    "lexemes": {
+     "dict": {
+      "list": "str"
+     }
+    },
+    "fn": {
+     "dict": {
+      "list": "str"
+     }
+    },
+    "fn_keys": {
+     "dict": {
+      "list": "str"
+     }
+    }
+   },
+   "data": {
+    "keys": [
+     85,
+     "8d9c862d22cd75d9"
+    ],
+    "lexemes": [
+     85,
+     "60c4f761e350f730"
+    ],
+    "fn": [
+     85,
+     "6d1b226f545e59b5"
+    ],
+    "fn_keys": [
+     85,
+     "73902784f6772278"
+    ]
+   }
+  },
+  ".align (dan JOL 1)": {
+   "format": {
+    "head": "# full alignment, bcv-commons compact-alignments format (scripts/full_align.py)",
+    "fields per row": [
+     4
+    ],
+    "profiles": [
+     "b"
+    ],
+    "rows parse": true,
+    "text hash = draft": true
+   },
+   "data": {
+    "rows": [
+     20,
+     "e85b49379aa1d73c"
+    ],
+    "text hash": "5e0b680533478d7a"
+   }
+  },
+  "store dan/dan_BSB": {
+   "format": {
+    "top": [
+     "edition",
+     "entries",
+     "iso",
+     "licence",
+     "orthography",
+     "partition"
+    ],
+    "entry fields": [
+     "by",
+     "confidence",
+     "date",
+     "evidence",
+     "id",
+     "kind",
+     "method",
+     "note",
+     "pattern",
+     "status",
+     "value",
+     "words"
+    ],
+    "kinds": [
+     "feature",
+     "gap",
+     "letter"
+    ],
+    "grammar.load -> morphs": true
+   },
+   "data": {}
+  },
+  "store kvg/kvg_BSB": {
+   "format": {
+    "top": [
+     "analysis",
+     "edition",
+     "entries",
+     "iso",
+     "licence",
+     "orthography",
+     "partition"
+    ],
+    "entry fields": [
+     "affixes",
+     "agree",
+     "alternation",
+     "alternatives",
+     "answer_basis",
+     "area",
+     "attested",
+     "basis",
+     "basis_by_morph",
+     "basis_corpus",
+     "bundle",
+     "by",
+     "codes",
+     "confidence",
+     "date",
+     "evidence",
+     "external_source",
+     "figures",
+     "form",
+     "gap",
+     "gloss",
+     "greek",
+     "host",
+     "id",
+     "kind",
+     "method",
+     "morphs",
+     "next",
+     "note",
+     "paradigm",
+     "parts",
+     "pattern",
+     "productive",
+     "rerun",
+     "rerun_method",
+     "rule",
+     "slot",
+     "source",
+     "stats",
+     "status",
+     "supersedes",
+     "team_source",
+     "tests",
+     "tone",
+     "tone_pattern",
+     "unimorph",
+     "value",
+     "variants",
+     "verdict",
+     "with",
+     "words",
+     "written"
+    ],
+    "kinds": [
+     "cell",
+     "claim",
+     "feature",
+     "gap",
+     "letter",
+     "morph",
+     "word"
+    ],
+    "grammar.load -> morphs": true
+   },
+   "data": {}
+  },
+  "lang.sqlite (kvg)": {
+   "format": {
+    "d_names": [
+     "lemma",
+     "form",
+     "n"
+    ],
+    "meta": [
+     "name",
+     "value"
+    ],
+    "nt_links": [
+     "book",
+     "ch",
+     "v",
+     "pos",
+     "key",
+     "src"
+    ],
+    "nt_tokens": [
+     "book",
+     "ch",
+     "v",
+     "pos",
+     "surface",
+     "form",
+     "raw"
+    ]
+   },
+   "data": {}
+  }
+ }
+}

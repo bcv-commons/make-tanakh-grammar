@@ -210,7 +210,7 @@ def main():
                 lic = " ".join(str((yaml.safe_load(open(y, encoding="utf-8")) or {}).get("licence") or "").split()) or None
                 break
     head = {"spec": "bcv-split/0.1", "edition": a.edition, "tokenizer_version": T.TOKENIZER_VERSION,
-            "source": f"bsb-add-books store, {a.project}, {datetime.date.today()}", "basis": "derived",
+            "source": f"make-tanakh store, {a.project}, {datetime.date.today()}", "basis": "derived",
             "sha256": hashlib.sha256(open(fp, "rb").read()).hexdigest(), "text_licence": lic or "unknown",
             "books": sorted(books), "date": str(datetime.date.today()), "stats": dict(st),
             # each book's text fingerprint (v1, the 8-hex hash in compact-alignments' file names), from the text the file was

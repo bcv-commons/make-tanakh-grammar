@@ -52,4 +52,5 @@ TBTA data. Reports quote within `docs/licensing.md`'s limits (short, credited).
 - Each result names the engine version (`eng_v10`) and the work repo's commit (its toolkit and data); after the
   reconciliation, the make-tanakh tag.
 - The datasets this repo publishes carry their version in their manifest.
-- A contract test (to come) reads one chapter of each format the lab uses and fails when a toolkit update changes one.
+- The contract test (`lab/contract/check.py`) reads one chapter of each format the lab uses and fails when a toolkit update
+  changes one; `lab/contract/expected.json` names the work repo's commit it was recorded at.

@@ -2,7 +2,7 @@
 """Our language analysis as the Hugging Face dataset bcv-commons/language-analysis (user 2026-10-26; local tool, with
 export_split.py and seg_bundle.py). Builds the dataset tree locally; pushing is a separate, explicit step.
 
-    /usr/bin/python3 lab/split/publish_analysis.py build [project ...]     -> scratch/hf/language-analysis/
+    /usr/bin/python3 lab/split/publish_analysis.py build [project ...]     -> private/hf/language-analysis/
     ~/sil-study/.venv/bin/python lab/split/publish_analysis.py push [--yes]  (dry run without --yes)
 
 Tree:
@@ -20,7 +20,7 @@ Tree:
 the same version, a changed store a new one. Built only from tracked, derived data: never a text that is not free."""
 import argparse, datetime, glob, hashlib, json, os, shutil, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); R = os.environ["MAKE_TANAKH_WORK"]
-OUT = os.path.join(R, "scratch/hf/language-analysis")
+OUT = os.path.join(os.environ["MAKE_TANAKH_PRIVATE"], "hf/language-analysis")   # the dataset's staging tree, never in git (env.sh)
 REPO = "bcv-commons/language-analysis"
 VENV = os.path.expanduser("~/sil-study/.venv/bin/python")
 
@@ -92,7 +92,7 @@ def build(projects):
             lic["split/"] = f"{text_lic}: it holds the edition's text, cut into parts. Credit: {credit}"
         meta = {"language": lang, "project": pname, "version": v, "date": str(datetime.date.today()), "style_edition": edition,
                 "text_licence": text_lic, "text_published_here": bool(split_ok and edition and has_morphs(files)),
-                "licence": lic, "source": "bsb-add-books (larsgson/bsb-add-books-work), the project's language store"}
+                "licence": lic, "source": "make-tanakh (larsgson/make-tanakh-work), the project's language store"}
         json.dump(meta, open(os.path.join(d, "VERSION.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         hashes = {os.path.relpath(os.path.join(a, f), d): sha(os.path.join(a, f)) for a, _, fs in os.walk(d) for f in fs}
         L = man["languages"].setdefault(lang, {"versions": {}})

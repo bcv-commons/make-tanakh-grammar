@@ -18,6 +18,7 @@ releases. How the three repos relate: [RELATIONS.md](RELATIONS.md).
 | `lab/rules/data/` | corpus builders, and the function-word lists derived from free alignments; the corpora are built into `$MAKE_TANAKH_PRIVATE/rules/data/` |
 | `tools/` | `screen.py`, the pre-commit screening (below) |
 | `lab/split/` | the language analysis: conventions modules, segmenter bundle, split files, `publish_analysis.py` (the HF dataset) |
+| `lab/contract/` | the contract test: one chapter of each format the lab reads from the work repo, as schemas, counts and hashes; `check.py` fails when a toolkit update changes a format |
 | `lab/heldout/` | held-out test setup (edition copy, store scrub) for Step A |
 | `docs/` | the lab plan, research notes, the split inventory |
 
