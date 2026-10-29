@@ -12,6 +12,9 @@
 !/.githooks/
 !/.githooks/*
 !/tools/screen_allow.txt
+# lexeme-aligner as a submodule, pinned at a tag (git stores only the commit; its files are not ours)
+!/.gitmodules
+!/vendor/lexeme-aligner
 # function words derived from free alignments (never hebm95_func.txt: HEBM95 is © Bible Society in Israel)
 !/lab/rules/data/dan_func.txt
 !/lab/rules/data/vamvas_func.txt

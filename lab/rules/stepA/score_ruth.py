@@ -33,16 +33,14 @@ BOOK = os.environ.get("STEPA_BOOK", "RUT")
 NCH = {"RUT": 4, "JON": 4}[BOOK]
 HUMAN = os.path.join(R, "import/non-free/kvg/KVG-KuNT/text", BOOK.lower() + "%03d.txt")
 DRAFT = os.path.join(os.environ.get("STEPA_DRAFT") or os.path.join(R, "export/kvg/kvg_BSB/_eval/ruth-test"), BOOK.lower() + "%03d.txt")
-# the team's later decisions that the older human text predates: the human word is read as the decided one. From the store
-# (team_map); CONFIRMED stands in for a team entry that does not name what it replaces yet
+# the team's later decisions that the older human text predates: the human word is read as the decided one (team_map)
 STORE = os.path.join(R, "export/kvg/kvg_BSB/profile")
-CONFIRMED = {"name:yahweh.team": ["Yawe"]}   # "Evezøza everywhere" (the yahweh question, answers of 2026-10-26)
 
 
-def team_map(store=STORE, confirmed=CONFIRMED):
+def team_map(store=STORE):
     """({human word: decided word}, [applied entry ids]) from the store's team decisions (method team-decision) that name the
-    forms of the published text they overrule ("replaces": [form, ...]); a decision without the field counts only where
-    CONFIRMED names it. The scorer maps word for word: a phrase on either side is left out, with a warning."""
+    forms of the published text they overrule ("replaces": [form, ...]; the work repo sets it, a decision for new drafts
+    only has none). The scorer maps word for word: a phrase on either side is left out, with a warning."""
     es = []
     for f in ("observations.json", "decisions.json"):
         fp = os.path.join(store, f)
@@ -52,7 +50,7 @@ def team_map(store=STORE, confirmed=CONFIRMED):
     for e in es:
         if e.get("method") != "team-decision" or e.get("status") == "superseded":
             continue
-        old = e.get("replaces") or confirmed.get(e["id"])
+        old = e.get("replaces")
         if not old:
             continue
         new = [t.lower() for t in F.tokenize(e.get("value") or "")]

@@ -2,8 +2,8 @@
 """Candidates for the scorers' team map (score_ruth.team_map): the team's decisions (method team-decision) on words, names and
 formulas, beside the store's other entries for the same thing whose form differs (the same id family, or an id the team
 entry's note names), and how often that older form occurs in the human Kuni text. A candidate counts only once the team
-entry names it ("replaces": [form, ...], set in the work repo's store) or score_ruth.CONFIRMED does: a decision for new
-drafts does not by itself say the older text is wrong.
+entry names it ("replaces": [form, ...], set in the work repo's store): a decision for new drafts does not by itself say
+the older text is wrong.
 
     . ./env.sh; /usr/bin/python3 lab/rules/stepA/team_candidates.py [BOOK ...]     (default RUT JON; output is local: Kuni
     forms, never in git)"""

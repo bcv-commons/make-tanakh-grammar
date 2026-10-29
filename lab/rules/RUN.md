@@ -15,3 +15,18 @@
 - 2026-10-26 eng_v4 frozen (NT B E6 38.34, OT B E6 39.39); ENDINGS=learn: Vamvas E6 +1.2, BSB -0.2/-0.5, not kept; report section 4
 2026-10-26 NLLB CPU tests T1-T3 done: nllb/cpu_tests.md
 - 2026-10-28 night: rung 4 (Hebrew -> Danish, our drafts' .align, danish/): eng_v10 = eng_v9 + NOWORD + ENDINGS=auto (bootstraps: all targets >= 0); REFL tried, off. REPORT-rung4-danish-2026-10-28.md
+- 2026-10-29 lexeme-aligner v0.1.0 as a submodule (vendor/lexeme-aligner, aa60a9c; env.sh LEXEME_ALIGNER, ALIGNER_DATA). First
+  test: align-text (no --jev) on the BSB, RUT JON MRK PHM (lab/align/export_bsb.py; 27 s), scored against the BSB tables
+  (lab/align/gold_bsb.py; MRK test chapters left out). Content words only (v0.1.0 has no function-word channel; 3,701 gold
+  function words not scored): 5,321 words, links P 0.853 R 0.529; a right word 0.849, exact 0.466, unlinked 0.034. Most
+  misses are partial: the tables give the whole word with its prefixes, article, auxiliary or ending ("in the land", "I will
+  send"), align-text the core ("land", "send"): OT 51% partial, 25% exact, 17% wrong; NT 30% partial, 54% exact, 10% wrong.
+  English is favoured (the spine's English glosses feed the gloss step). Outputs: private/align/bsb4/.
+- 2026-10-29 align-text --jev (TypeSafe Jev, capped $1 per run; estimates $0.71 BSB, $0.85 DFB) on the same four books.
+  BSB against the tables (gold_bsb.py now reads either layer): the jev layer has a function-word channel; all 9,022 words:
+  links P 0.922 R 0.762; content P 0.913 R 0.728 (base 0.852 / 0.530), exact 0.605 (0.465); function words P 0.940 R 0.833.
+  Wrong links (disjoint from the tables) NT 10.0% -> 2.0%, OT 17.3% -> 4.4%. Den Frie Bibel (CC0, no gold;
+  lab/align/export_edition.py, compare_layers.py, test chapters left out): content linked 0.971 base / 0.954 jev, Danish words
+  covered 0.386 -> 0.817; base and jev agree on 62.8% of content words, jev adds words to 24.3%, disjoint 5.5% (BSB: 57.4%,
+  23.6%, 6.3%), so DFB behaves like the BSB. eflomal varies run to run (BSB base P 0.853 / 0.851). DFB PHM 23 is read into 22
+  (the source writes "v23:"). Outputs: private/align/{bsb4,dfb4}/.

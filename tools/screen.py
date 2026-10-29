@@ -269,7 +269,12 @@ def main():
     args = sys.argv[1:]
     if not args or args == ["--staged"]:
         names = [p for p in git("diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z").decode().split("\0") if p]
-        files = [(p, git("show", f":{p}")) for p in names]
+        # a submodule (mode 160000) is a commit pointer, not a file: named, not screened (its files are not ours)
+        subs = {l.split("\t", 1)[1] for l in git("ls-files", "-s", "-z").decode().split("\0") if l.startswith("160000 ")}
+        for p in names:
+            if p in subs:
+                print(f"submodule {p}: a commit pointer, not screened")
+        files = [(p, git("show", f":{p}")) for p in names if p not in subs]
     elif args == ["--all"]:
         names = [p for p in git("ls-files", "--cached", "--others", "--exclude-standard", "-z").decode().split("\0")
                  if p and os.path.isfile(os.path.join(ROOT, p))]
