@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The spot-check experiment's clean set-up (private; scratch/). Ruth 1, Genesis 24 and 27 are drafted by agents that
+"""The spot-check experiment's clean set-up. Ruth 1, Genesis 24 and 27 are drafted by agents that
 must not see the human Kuni of those chapters:
 
   edition  import/non-free/kvg/KVG-spot/   a copy of KVG-KuNT's text/ without rut001, gen024, gen027 (no source/: the

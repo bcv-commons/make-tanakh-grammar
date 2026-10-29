@@ -20,7 +20,7 @@ import full_align as FA, vrs  # noqa: E402
 import layercheck_v1 as LC  # noqa: E402
 
 DL = os.path.join(PRIV, "data/bsbfix/v1")
-TABLES = "/home/lgunnars/dev/bcv-commons/bcv-query/example/bsb_tables.tsv"
+TABLES = os.path.join(os.environ["BCV_COMMONS"], "bcv-query/example/bsb_tables.tsv")
 csv.field_size_limit(10 ** 9)
 
 

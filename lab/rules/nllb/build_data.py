@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """BSB NLLB as an instrument for the rules-engine lab (user 2026-10-26: not a drafter to score). Greek -> English on the
-engine's own verses (scratch/rules/data/nt.db): source = the MACULA Greek tokens of the verse (text + after, monotonic, as
+engine's own verses ($MAKE_TANAKH_PRIVATE/rules/data/nt.db): source = the MACULA Greek tokens of the verse (text + after, monotonic, as
 srcpivot did for ell_Grek), target = the BSB verse. Two pools as for the engine: nogospels (no MAT/LUK/JHN) and nt.
 train = the engine's train verses of the pool minus 250 for validation; "test" = the engine's dev chapters (MRK 3, 9, 12).
 The engine's test chapters (MRK 5, 10, 15) are left out entirely.

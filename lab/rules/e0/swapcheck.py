@@ -1,9 +1,9 @@
-import os
 """E0: lexeme-aligner's eng_BSB+manual+bsb-tables layer (orig/grc.sqlite bsb) against the raw BSB tables (bcv-query's copy of
 bsb_tables.tsv), NT. Per verse: raw rows in Greek order, matched to MACULA tokens by surface form in order; the raw English
 chunk's word positions (tokenizer v2 over the chunks in BSB order) against the layer's positions."""
-import collections, csv, difflib, json, re, sqlite3, sys, unicodedata
+import collections, csv, difflib, json, os, re, sqlite3, sys, unicodedata
 R = os.environ["MAKE_TANAKH_WORK"]; sys.path.insert(0, R + "/scripts")
+PRIV = os.path.join(os.environ["MAKE_TANAKH_PRIVATE"], "rules")   # corpora and run outputs, never in git (env.sh)
 from full_align import tokenize
 csv.field_size_limit(10**9)
 names = {l.split("\t")[1]: l.split("\t")[0].upper() for l in open(R + "/books.tsv", encoding="utf-8").read().splitlines()[1:]}
@@ -11,7 +11,7 @@ names.update({"Psalm": "PSA", "Song of Solomon": "SNG"})
 def norm(w):
     return "".join(c for c in unicodedata.normalize("NFD", w.lower()) if not unicodedata.combining(c) and c.isalpha())
 verses = collections.defaultdict(list); vid = None
-for row in csv.reader(open("/home/lgunnars/dev/bcv-commons/bcv-query/example/bsb_tables.tsv", encoding="utf-8"), delimiter="\t"):
+for row in csv.reader(open(os.path.join(os.environ["BCV_COMMONS"], "bcv-query/example/bsb_tables.tsv"), encoding="utf-8"), delimiter="\t"):
     if row[0] == "Heb Sort":
         continue
     if row[12].strip():
@@ -82,4 +82,5 @@ for k, e in exk.items(): print(k, e)
 print("differ rate, repeated Strong's:", round(bad["repeated strong"] / max(1, st["rep tokens"]), 4),
       " unique:", round(bad["unique strong"] / max(1, st["tokens"] - st["rep tokens"]), 4))
 for e in ex: print(e)
-json.dump({"stats": st, "bad": bad, "examples": ex}, open(R + "/scratch/rules/e0/swapcheck.json", "w"), ensure_ascii=False, indent=1, default=str)
+os.makedirs(os.path.join(PRIV, "e0"), exist_ok=True)
+json.dump({"stats": st, "bad": bad, "examples": ex}, open(os.path.join(PRIV, "e0/swapcheck.json"), "w"), ensure_ascii=False, indent=1, default=str)

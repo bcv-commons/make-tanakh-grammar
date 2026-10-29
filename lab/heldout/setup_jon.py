@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Step A clean test (private; scratch/; adapted from setup_spot.py, 2026-10-28). Jonah 1-4 is drafted by an agent that
+"""Step A clean test (adapted from setup_spot.py, 2026-10-28). Jonah 1-4 is drafted by an agent that
 must not see the human Kuni of Jonah:
 
   edition  import/non-free/kvg/KVG-jontest/   a copy of KVG-KuNT's text/ without jon001-004 (no source/: the
@@ -163,7 +163,7 @@ def arm(name):
                "  - import/non-free/kvg/KVG-jontest/text/rut003.txt\n  - import/non-free/kvg/KVG-jontest/text/rut001.txt\n", y)
     y = y.replace("do_not_open: [download/, scratch/]",
                   "do_not_open: [download/, scratch/, import/non-free/kvg/KVG-KuNT/, export/kvg/, ~/bsb-nllb/, /tmp/]")
-    y = ("# Step A clean test " + name + " (private; scratch/kvg/spot/setup_jon.py, 2026-10-28): Jonah 1-4 held out\n" + y)
+    y = ("# Step A clean test " + name + " (make-tanakh-grammar lab/heldout/setup_jon.py, 2026-10-28): Jonah 1-4 held out\n" + y)
     open(os.path.join(dst, "project.yaml"), "w", encoding="utf-8").write(y)
     print(f"jon_{name}:", dict(stats))
 

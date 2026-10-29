@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """E0: the lab's NT data (rung 1, Greek NT -> BSB), built from the BSB Translation Tables themselves (bcv-query's copy of
-bsb_tables.tsv), not from lexeme-aligner's layer (9.0% of its NT links differ from the tables: scratch/rules/e0/swapcheck.py).
+bsb_tables.tsv), not from lexeme-aligner's layer (9.0% of its NT links differ from the tables: lab/rules/e0/swapcheck.py).
 
 Per verse: the BSB verse words (tokenizer v2, as compact-alignments), and per MACULA Nestle 1904 token its BSB word positions,
 which of them are supplied (bracketed in the tables), and the table's chunk. Only verses whose table chunks rebuild the BSB verse
 word for word are kept (7,904 of 7,939). MACULA's tree (orig/grc.sqlite nodes, tokens) is read from orig/grc.sqlite at run time.
-    /usr/bin/python3 lab/rules/data/build.py   -> scratch/rules/data/nt.db"""
+    /usr/bin/python3 lab/rules/data/build.py   -> $MAKE_TANAKH_PRIVATE/rules/data/nt.db"""
 import collections, csv, difflib, json, os, re, sqlite3, sys, unicodedata
 R = os.environ["MAKE_TANAKH_WORK"]; sys.path.insert(0, os.path.join(R, "scripts"))
 from full_align import tokenize  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 PRIV = os.path.join(os.environ["MAKE_TANAKH_PRIVATE"], "rules")   # corpora and run outputs, never in git (env.sh)
-TABLES = "/home/lgunnars/dev/bcv-commons/bcv-query/example/bsb_tables.tsv"
+TABLES = os.path.join(os.environ["BCV_COMMONS"], "bcv-query/example/bsb_tables.tsv")
 csv.field_size_limit(10**9)
 
 # Mark, fixed 2026-10-26 before anything was measured: the agent and the rule scripts never read TEST

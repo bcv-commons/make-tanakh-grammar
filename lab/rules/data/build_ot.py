@@ -3,7 +3,7 @@
 The tables align whole Hebrew words (prefixes and suffixes included); MACULA Hebrew (orig/heb.sqlite) splits words into
 morphemes (key = word id + part). The unit here is the Hebrew word: its MACULA morphemes, with their lemmas and features, and
 the table's English chunk. Hebrew verse numbers are kept (the drafting convention); the BSB verse is found by orig/vrs.
-    /usr/bin/python3 lab/rules/data/build_ot.py   -> scratch/rules/data/ot.db"""
+    /usr/bin/python3 lab/rules/data/build_ot.py   -> $MAKE_TANAKH_PRIVATE/rules/data/ot.db"""
 import collections, csv, difflib, json, os, re, sqlite3, sys, unicodedata
 R = os.environ["MAKE_TANAKH_WORK"]; sys.path.insert(0, os.path.join(R, "scripts"))
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)

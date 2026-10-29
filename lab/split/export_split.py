@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); R = os.environ["MAKE_TANAKH_W
 sys.path.insert(0, os.path.join(R, "scripts"))
 import langtools as LT, morphs as M, grammar  # noqa: E402
 
-VENDOR = os.path.expanduser("~/dev/bcv-commons/lexeme-aligner/pipeline/vendor/bibles/bcv_tokenize.py")
+VENDOR = os.path.join(os.environ["BCV_COMMONS"], "lexeme-aligner/pipeline/vendor/bibles/bcv_tokenize.py")
 HYPHENS = "-‐‑"
 RANK = {"team": 0, "derived": 1, "external": 2, "model": 3, "labelled": 4}
 

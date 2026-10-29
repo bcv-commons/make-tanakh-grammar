@@ -15,7 +15,7 @@ import collections, glob, json, os, sqlite3, sys
 from pathlib import Path
 HERE = os.path.dirname(os.path.abspath(__file__)); LAB = os.path.dirname(HERE); R = os.environ["MAKE_TANAKH_WORK"]
 PRIV = os.path.join(os.environ["MAKE_TANAKH_PRIVATE"], "rules")   # corpora and run outputs, never in git (env.sh)
-LA = os.path.expanduser("~/dev/bcv-commons/lexeme-aligner/pipeline")
+LA = os.path.join(os.environ["BCV_COMMONS"], "lexeme-aligner/pipeline")
 sys.path.insert(0, LA); sys.path.insert(0, os.path.join(LA, "vendor/bibles"))
 import bcv_tokenize as T  # noqa: E402
 from lexeme_aligner import usj_source as U  # noqa: E402

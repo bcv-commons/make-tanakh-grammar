@@ -6,7 +6,8 @@ to make-tanakh and the work repo), then `docs/rules-engine-lab.md` (the plan) an
 ## Setup
 
 - `. ./env.sh` before any run: `MAKE_TANAKH_WORK` (the work repo, default `~/dev/make-tanakh-work`) and `PYTHONPATH`
-  (its `scripts/`). Lab code reads the work repo only through `MAKE_TANAKH_WORK`; never write a path to it into code.
+  (its `scripts/`), `BCV_COMMONS` (the bcv-commons checkouts: bcv-query, lexeme-aligner; default `~/dev/bcv-commons`).
+  Lab code reads them only through these settings; never write a path of this box into code.
 - Interpreters: `~/sil-study/.venv/bin/python` (sacrebleu, pyarrow, huggingface_hub) for the lab; `/usr/bin/python3`
   (PyYAML) for the toolkit's scripts.
 - `MAKE_TANAKH_PRIVATE` (env.sh; default `./private`, never tracked): corpora, run outputs, Step A results, everything

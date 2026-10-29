@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Agent-free rounds and engine-gap detectors, calibrated against the two linguist rounds (2026-10-26).
-No LLM anywhere. For one frozen engine version (scratch/rules/eng_v0 = before round 1, eng_v1 = after the round-1 engine
+No LLM anywhere. For one frozen engine version (lab/rules/eng_v0 = before round 1, eng_v1 = after the round-1 engine
 change, eng_v2 = now), on two disjoint training samples A (the agents' sample, seed 7) and B (seed 8), and dev:
 
   auto rules  greedy search in the agents' rule format (rules.py): templates = the lemma or not, plus up to two of the

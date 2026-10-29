@@ -8,7 +8,8 @@ It is a cousin of [make-tanakh](https://github.com/bcv-commons/make-tanakh) (thi
 releases. How the three repos relate: [RELATIONS.md](RELATIONS.md).
 
     . ./env.sh                        # MAKE_TANAKH_WORK = a make-tanakh work copy with sources and projects,
-                                      # MAKE_TANAKH_PRIVATE = where corpora and run outputs go (default ./private)
+                                      # MAKE_TANAKH_PRIVATE = where corpora and run outputs go (default ./private),
+                                      # BCV_COMMONS = the bcv-commons checkouts (bcv-query, lexeme-aligner)
     cd lab/rules && python3 danish/run.py      # e.g. rung 4 (needs its corpus first: danish/build_ot.py)
 
 | folder | what |
