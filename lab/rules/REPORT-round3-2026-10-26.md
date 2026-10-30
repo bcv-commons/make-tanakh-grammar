@@ -5,7 +5,7 @@ Follows `REPORT-2026-10-26.md` (day 1) and `auto/CALIBRATION.md` (detectors). No
 engine before the round: `engine/*.r3.py`. The test chapters (Mark 5, 10, 15; Genesis 22, 37, 44) were not read.
 
 **New measuring set, held-out B:** 1,500 training verses (seed 8, the detectors' sample B) taken out of the pool, the engine
-retrained without them. Dev (127 NT / 91 OT verses) moves ±0.2 chrF by noise; B is 12 times larger. Every decision below was
+retrained without them. Dev (127 NT / 91 Tanakh verses) moves ±0.2 chrF by noise; B is 12 times larger. Every decision below was
 taken on B, with a paired bootstrap (1,000 resamples) for the changes kept.
 
 ## 1. What was tried, what was kept (B, E6 unless noted)
@@ -33,10 +33,10 @@ three together, **+3.31 [3.12, 3.49]**; the suffix alone E6 +2.06 [1.89, 2.23], 
 |---|---|---|---|---|---|
 | NT nogospels, dev, E6 v2 → v3 | 0.580 → 0.580 | 0.494 → 0.494 | 0.586 / 0.481 → 0.593 / 0.485 | 0.873 | 35.80 → 35.89 |
 | NT nogospels, B, E5 / E6 / E7 (v3) | 0.591 / 0.597 / 0.590 | 0.507 / 0.519 / 0.513 | 0.635 / 0.489, 0.644 / 0.457, 0.635 / 0.489 | 0.865 | 38.32 / 37.31 / 37.98 |
-| OT, dev, E5 / E6 (day 1 → v3) | | | E6 R 0.371 → 0.503 | 0.879 | E5 37.4 → 39.0, E6 34.5 → 38.4 |
-| OT, B, E5 / E6 / E7 (v3) | 0.606 / 0.613 / 0.605 | 0.520 / 0.521 / 0.519 | 0.646 / 0.510, 0.644 / 0.457, 0.646 / 0.507 | 0.898 | 40.99 / 38.39 / 40.70 |
+| Tanakh, dev, E5 / E6 (day 1 → v3) | | | E6 R 0.371 → 0.503 | 0.879 | E5 37.4 → 39.0, E6 34.5 → 38.4 |
+| Tanakh, B, E5 / E6 / E7 (v3) | 0.606 / 0.613 / 0.605 | 0.520 / 0.521 / 0.519 | 0.646 / 0.510, 0.644 / 0.457, 0.646 / 0.507 | 0.898 | 40.99 / 38.39 / 40.70 |
 
-The NT dev gain is small (dev is 127 verses); B is the reference: OT E5 39.82 → 40.99, E6 35.08 → 38.39 with round 3.
+The NT dev gain is small (dev is 127 verses); B is the reference: Tanakh E5 39.82 → 40.99, E6 35.08 → 38.39 with round 3.
 
 **Swap tests** (`engine/metamorphic2.py`, new; attested forms only: εἰμί has no aorist, a deponent's future is middle), on B,
 share of swaps that leave the rest of the rendering unchanged — future / aorist / noun plural:
@@ -70,7 +70,7 @@ tokens; D4 0.38 invented forms per 1,000 words. Auto rules on v3: exact 0.4254 �
 ## 4. Rung 1c: Greek and Hebrew → KJV
 
 Data from lexeme-aligner, read today (`kjv/SOURCES.md`): the KJV NT linked to the TR, with the Nestle 1904 ids of the same
-words where TR and Nestle agree (`kjv/build_nt.py` → `data/kjv_nt.db`, 7,903 verses, 119,316 links), and the KJV OT layer
+words where TR and Nestle agree (`kjv/build_nt.py` → `data/kjv_nt.db`, 7,903 verses, 119,316 links), and the KJV Tanakh layer
 (`kjv/build_ot.py` → `data/kjv_ot.db`, 22,716 verses, 287,374 Hebrew words linked). Text from helloAO `eng_kjv`; every
 fingerprint matched. The same engine (eng_v3's switches) with the KJV's function words added (thou, thee, ye, hath, unto …);
 no rule written for the KJV.
@@ -80,14 +80,14 @@ no rule written for the KJV.
 | NT nogospels → BSB | 0.575 | 0.587 / 0.522 | 0.874 | 36.5 |
 | NT nogospels → KJV | 0.670 | 0.697 / 0.568 | 0.919 | 41.9 |
 | NT nt → BSB / KJV | 0.680 / 0.769 | 0.625 / 0.563, 0.708 / 0.586 | 0.882 / 0.922 | 43.0 / 46.7 |
-| OT → BSB / KJV | 0.614 / 0.704 | 0.678 / 0.505, 0.732 / 0.676 | 0.880 / 0.941 | 39.0 / 49.0 |
+| Tanakh → BSB / KJV | 0.614 / 0.704 | 0.678 / 0.505, 0.732 / 0.676 | 0.880 / 0.941 | 39.0 / 49.0 |
 
-On B the same: NT nogospels E5 38.3 / 43.5, OT 41.0 / 50.0. The KJV keeps the source's order (on the OT τ 0.93 before any order
-rule) and one rendering per lemma far more often; the order rules add little on the KJV OT (+0.01 τ) and much on its
+On B the same: NT nogospels E5 38.3 / 43.5, Tanakh 41.0 / 50.0. The KJV keeps the source's order (on the Tanakh τ 0.93 before any order
+rule) and one rendering per lemma far more often; the order rules add little on the KJV Tanakh (+0.01 τ) and much on its
 NT (0.85 → 0.92). Stage order is the same as on the BSB (E5 ≥ E7 > E6 on reference scores).
 
 **Caveat:** the KJV NT layer covers 81.8% of the KJV's words (TR-only words have no Nestle id; some added words are not
-decided in the layer, e.g. "it came to pass" in RUT 1:1 is linked as "Now … pass"), against 98.9% for the BSB tables; the OT
+decided in the layer, e.g. "it came to pass" in RUT 1:1 is linked as "Now … pass"), against 98.9% for the BSB tables; the Tanakh
 layer 92.5% (BSB 95.6%). Token measures run on the linked words only, so they are on an easier set for the KJV; chrF is over
 the whole verse in both cases. A KJV spellout table (thou / ye, -est / -eth) was not needed as a separate step: the cells learn
 the forms from the data, as they learn the BSB's.

@@ -114,12 +114,12 @@ rules become store `claim`s with the log lines as evidence.
 - After each learning round the held-out human chapters are re-scored slot by slot, and a round that lowers accuracy is
   rolled back (the learning curve).
 
-### Hebrew for a language without an OT (Zinza)
+### Hebrew for a language without a Tanakh (Zinza)
 
 - Start from the NT tables carried over through the shared feature set and the LXX bridge.
 - Hebrew-only constructions (wayyiqtol chains, infinitive absolute, oaths, hinneh) are learned from agent decisions
   and team review only, so the safeguards matter most there.
-- Kuni, with human OT chapters, is the test bed for the loop.
+- Kuni, with human Tanakh chapters, is the test bed for the loop.
 
 ### Order when resumed
 

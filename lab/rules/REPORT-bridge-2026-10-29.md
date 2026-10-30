@@ -1,7 +1,7 @@
 # Bridging the rules engine and the LLM / ICL / NLLB drafters: pilots and a plan (2026-10-29)
 
 Public report; figures and method only. Examples from the texts are in the private appendix (`private/rules/bridge/NOTES.md`
-on the box). Everything here was run on the lab's Danish workbench: Hebrew OT -> Danish, with Den Frie Bibel (DFB, CC0) as
+on the box). Everything here was run on the lab's Danish workbench: Hebrew -> Danish, with Den Frie Bibel (DFB, CC0) as
 the human reference, our own LLM drafts as a second corpus, and the rules engine eng_v10 (`lab/rules/eng_v10/`).
 
 ## 1. The question
@@ -16,13 +16,13 @@ plus a track that makes the engine itself as good as the data allows.
 
 **Corpora** (all built by `lab/bridge/build_corpus.py` from align-text layers; never in git):
 
-- `dfb_base.db`: DFB OT, 11,138 verses aligned to the Hebrew by lexeme-aligner's align-text, base layer (no `--jev`: content
+- `dfb_base.db`: DFB Tanakh, 11,138 verses aligned to the Hebrew by lexeme-aligner's align-text, base layer (no `--jev`: content
   links only, no function-word channel). Split: **test** = RUT, JON, JDG 6-8, EXO 3-4, NUM 13-14 (364 verses); **dev** =
   JDG 13-14, EXO 14, NUM 22 (116 verses); train = the rest (10,658). None of the test or dev books are in our own Danish
   drafts, so no system has seen them in any form.
 - `dan_ot.db`: our Danish drafts (5,922 training verses, 17 books), the rung-4 corpus.
 - `dfb_base+dan.db`: both (16,580 training verses; `merge_corpus.py`).
-- A `--jev` layer of the whole DFB OT (function words, cleaner links) was run at the end of the session; see section 6.
+- A `--jev` layer of the whole DFB Tanakh (function words, cleaner links) was run at the end of the session; see section 6.
 
 **Scorer** (`lab/bridge/score.py`): the Step A scorer generalised. The reference's alignment says what each Hebrew word is
 rendered as; a draft is scored on word choice (content words, by stem), form (exact), function words (bag P/R against a
@@ -139,7 +139,7 @@ orders the Hebrew words better. LLM minus NLLB: +12.5 [11.1, 14.0]. NLLB by clas
 (drafts): nouns 0.81 vs 0.63 choice, verbs 0.70 vs 0.48, adjectives 0.76 vs 0.47.
 
 H4 method: `build_nllb_data.py --extra` adds the E5 engine's renderings (built on the DFB base layer + drafts) of the 10,474
-OT verses DFB lacks or the test and dev books exclude, as plain pairs beside the real ones, no tag; same test and validation
+Tanakh verses DFB lacks or the test and dev books exclude, as plain pairs beside the real ones, no tag; same test and validation
 verses, same 1,000 steps (3 epochs over the mix, so 1.5 passes over the real pairs instead of 3). The two 300-step
 continuations start from the saved models with `run_nllb.sh MODEL=...` on the real pairs only, same batch and a fresh
 schedule, so they differ only in what came before. Scores: `score_nllb.py` on the same reference as every other row.
@@ -151,7 +151,7 @@ is the one the learning curve predicted.
 
 1. **Options**: inert (section 4.4). The engine's switches were tuned on Greek→English and do not move Hebrew→Danish.
 2. **Stages**: E2, E5, E6, E7 within 0.7 chrF of each other on every corpus; E5 stays the stage to use. On the jev corpus + drafts (dev): E2 39.55, E5 40.95, E6 40.07, E7 40.56.
-3. **Data**: the whole DFB OT (28 books, 11,138 verses) was aligned by lexeme-aligner's `align-text` twice: the base layer
+3. **Data**: the whole DFB Tanakh (28 books, 11,138 verses) was aligned by lexeme-aligner's `align-text` twice: the base layer
    (content links only, Jev not used) and the `--jev` layer (function-word channel, cleaner links; 29,592 Jev requests,
    estimated $17.68). A corpus built from the jev layer has 126,289 links against the base layer's 98,994, and 173 Danish
    function words fall out of the alignment itself (words linked only through the function channel) with no knowledge of
@@ -180,7 +180,7 @@ by-product worth checking by a Danish reader.
 - **TULUN** (arXiv 2505.18683): NMT draft + LLM post-edit guided by glossaries and translation memories; +2.8 chrF over
   NLLB-54B on FLORES (six low-resource languages), +17-22 chrF++ on Tetun/Bislama domain tasks. No ablation of draft vs
   glossary vs examples in the abstract.
-- **Dhao** (arXiv 2601.09982): fine-tuned NMT draft + LLM with retrieved examples recovers OT chrF++ 27.1 -> 35.2 (NT-trained);
+- **Dhao** (arXiv 2601.09982): fine-tuned NMT draft + LLM with retrieved examples recovers Tanakh chrF++ 27.1 -> 35.2 (NT-trained);
   the gain is attributed to the number of retrieved examples, not the retrieval method; the LLM "repairs severe failures".
 - **Grammar-book synthetic data** (arXiv 2607.22376): LLM-extracted rules, examples and lexicons from grammar books generate
   synthetic parallel data for fine-tuning; beats seed-data baselines in 59-75% of 96 configurations, best +3 to +9 chrF++;
@@ -254,19 +254,19 @@ output (the lab's earlier −2.8 result stands until the checker exists), and an
 
 ## 9. Postscript (2026-10-30 morning): the Hebrew ↔ Greek lexeme bridge
 
-The plan's Kuni paragraph rests on a bridge from the NT (aligned to the Greek) to the OT: a Hebrew lexeme reaches its Greek
+The plan's Kuni paragraph rests on a bridge from the NT (aligned to the Greek) to the Tanakh: a Hebrew lexeme reaches its Greek
 equivalents, and through them the target renderings the NT alignment already holds. The user's direction: no English pivot,
 built once, reusable for every language. `lab/bridge/strong_bridge.py` builds it in three tiers, each marked in the output
 so a consumer chooses how far to trust it:
 
-| tier | source | pairs | OT content tokens reached | NT content tokens reached |
+| tier | source | pairs | Tanakh content tokens reached | NT content tokens reached |
 |---|---|---|---|---|
 | macula | MACULA Hebrew's curated per-occurrence Greek Strong's (CC BY 4.0), all counts kept | 4,643 | 85.8% | 78.5% |
 | + lxx | verse co-occurrence of the Hebrew text with the Septuagint (GLAUx, CC BY-SA 4.0), Dice ≥ 0.3, both texts in one verse scheme (TVTMS maps) | 1,879 | 88.5% | 80.5% |
 | + jev | `bridge_jev.py`: code proposes candidates (shared gloss words weighted by specificity, weak co-occurrence); Jev chooses one or none; 511 lexemes asked, 213 kept at p ≥ 0.5 | 212 | 89.6% | 83.6% |
 
-What remains unbridged is of three kinds and is left so on purpose: names (5% of OT content tokens; transliteration, not
-bridging), OT words whose Septuagint equivalent is not NT vocabulary (cedar, drink offering, ephod: nothing on the NT side
+What remains unbridged is of three kinds and is left so on purpose: names (5% of Tanakh content tokens; transliteration, not
+bridging), Tanakh words whose Septuagint equivalent is not NT vocabulary (cedar, drink offering, ephod: nothing on the NT side
 to reach), and NT-only concepts (disciple, apostle, baptize, crucify: Jev answered "none"). Lowering the co-occurrence
 threshold adds collocates, not equivalents (cedar → wood, frankincense, scarlet), so it stays at 0.3. The bridge is
 language-independent; bcv-query's own `lxx_bridge.tsv` (the macula tier, cut to four Greek lexemes per Hebrew one) is the
@@ -274,5 +274,5 @@ published version, and a request to update it follows once the user has looked a
 
 Next for the bridge (not done): a grammar bridge beside it (Hebrew conjugation to Greek tense and mood, from the same
 Septuagint verse pairs), and a clause index over the NT clause layout (`kind`, `rule` are one vocabulary for both
-testaments) so that an OT clause finds NT clauses of the same shape with a bridged verb, whose target renderings exist
-before any OT verse is translated. That is the retrieval step of the plan's NLLB arm.
+testaments) so that a Hebrew clause finds NT clauses of the same shape with a bridged verb, whose target renderings exist
+before any Tanakh verse is translated. That is the retrieval step of the plan's NLLB arm.

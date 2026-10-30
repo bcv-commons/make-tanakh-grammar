@@ -1,6 +1,6 @@
-# Rung 4: Hebrew OT -> Danish (2026-10-28, overnight, scripts only)
+# Rung 4: Hebrew -> Danish (2026-10-28, overnight, scripts only)
 
-**Corpus.** Our own Danish OT drafts (`export/dan/dan_BSB`, CC0) with their `.align` files: only verse lines the drafting or
+**Corpus.** Our own Danish Tanakh drafts (`export/dan/dan_BSB`, CC0) with their `.align` files: only verse lines the drafting or
 alignment agents made or checked (profile b), only chapters whose text hash matches the draft. `danish/build_ot.py` ->
 `data/dan_ot.db` (the schema of `data/ot.db`): **5,989 verses, 78,440 Hebrew words linked**, 18 books (1-2 Sam, 1-2 Kgs, Prov,
 Josh 658, Neh, Gen 21-50 parts, Ezra, Hos, Est, Dan, Amos, Ecc, Mic, Joel, Mal, Lev 1). Daniel's and Ezra's Aramaic is not in
@@ -50,7 +50,7 @@ bootstrap, E6, B:
 | target | eng_v10 - eng_v9 |
 |---|---|
 | Danish | **+0.12** [0.07, 0.17] |
-| English (BSB OT) | **+0.05** [0.02, 0.08] |
+| English (BSB Tanakh) | **+0.05** [0.02, 0.08] |
 | Greek (Vamvas) | **+0.35** [0.28, 0.43] |
 
 ENDINGS=learn (endings learned from the target's vocabulary) helps Danish E6 too, like Vamvas earlier and unlike English. So
@@ -62,7 +62,7 @@ ENDINGS=learn (endings learned from the target's vocabulary) helps Danish E6 too
 | Danish (B, rung 4) | **+0.28** [0.11, 0.45] |
 | HEBM95 NT (B, rung 2's set) | **+0.11** [0.04, 0.18] |
 | Vamvas (B, rung 4) | +0.12 [-0.05, 0.28] |
-| BSB OT (B, rung 4) | 0.00 (the gate keeps hybrid) |
+| BSB Tanakh (B, rung 4) | 0.00 (the gate keeps hybrid) |
 
 Both frozen as **eng_v10** = eng_v9 + NOWORD + ENDINGS=auto (defaults; `eng_v10/cells.py` header).
 

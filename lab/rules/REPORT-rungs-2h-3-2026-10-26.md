@@ -8,7 +8,7 @@ training verses out of the pool) unless noted; dev in the run files.
 | corpus | data | builder | DB |
 |---|---|---|---|
 | Greek NT → Hebrew (Salkinson–Ginsburg 1885/86, PD) | bcv-commons/alignments-by-id v1.1 `n1904/h/heb/heb_scg` (CC0, Nestle 1904 ids); parts from bcv-commons/hebrew-nt-analysis v0.1 (CC BY 4.0) | `hebnt/build.py` | `data/hebnt.db`: 7,899 verses, 175,599 parts, 117,527 links |
-| Hebrew OT → Modern Greek (Vamvas 1850, PD) | full-alignments-llm `ell_GreVamvas+llm+jev-v4` (CC0, local copy) on our Vamvas text | `vamvas/build_ot.py` | `data/vamvas_ot.db`: 22,716 verses, 290,080 Hebrew words linked |
+| Hebrew → Modern Greek (Vamvas 1850, PD) | full-alignments-llm `ell_GreVamvas+llm+jev-v4` (CC0, local copy) on our Vamvas text | `vamvas/build_ot.py` | `data/vamvas_ot.db`: 22,716 verses, 290,080 Hebrew words linked |
 
 The target unit for Hebrew is the **part** (prefix ו ב ל ה, stem, suffix pronoun), unpointed, so Hebrew's function morphemes are
 the engine's function words. **Function words are derived, not listed:** Hebrew: part strings that are mostly prep / cj / art
@@ -20,10 +20,10 @@ switch, `FUNC_FILE`. Nothing else was changed for the two languages.
 |---|---|---|---|---|---|
 | NT → Hebrew (nogospels), chrF | 28.4 | 28.8 | **29.3** | 28.0 | 28.8 |
 | order τ | 0.798 | 0.872 | | | |
-| OT → Modern Greek, chrF | 45.6 | 45.6 | **46.8** | 40.6 | 45.9 |
+| Tanakh → Modern Greek, chrF | 45.6 | 45.6 | **46.8** | 40.6 | 45.9 |
 | order τ | 0.934 | 0.935 | | | |
 | for comparison: NT → BSB / KJV E5 | | | 38.3 / 43.5 | | |
-| OT → BSB / KJV E5 | | | 41.0 / 50.0 | | |
+| Tanakh → BSB / KJV E5 | | | 41.0 / 50.0 | | |
 
 (Hebrew chrF is over the parts as separate tokens, so it is not comparable in absolute terms with the others.)
 
@@ -90,7 +90,7 @@ E6 they help too, **+0.37 [0.29, 0.46]**. What is left is mostly the form step (
 | B, chrF | E5 | E6 | E7 |
 |---|---|---|---|
 | NT nogospels v3 → v4 | 38.32 → **38.94** | 37.31 → **38.34** | 37.98 → 38.64 |
-| OT v3 → v4 | 40.99 → 40.99 | 38.39 → **39.39** | 40.70 → 40.76 |
+| Tanakh v3 → v4 | 40.99 → 40.99 | 38.39 → **39.39** | 40.70 → 40.76 |
 
 E6 still behaves as a rule system: future / aorist / plural swaps leave the rest unchanged in 1.00 / 0.98 / 1.00.
 
@@ -129,9 +129,9 @@ The paradigm class (the stem's commonest ending as a key for the regular rule, `
 ## 6. Later the same day: the corpus from lexeme-aligner's BSB layer, eng_v5, the Greek case keys (eng_v6)
 
 **The corpus** is now built from lexeme-aligner's BSB layer v1.0 (`data/build_la.py` -> `data/nt_la.db`, `ot_la.db`; joined tokens
-split by their table rows). eng_v4 measured on it, B: NT E6 38.34 -> 39.11, OT E6 39.39 -> 39.71 (the cleaner alignment alone).
+split by their table rows). eng_v4 measured on it, B: NT E6 38.34 -> 39.11, Tanakh E6 39.39 -> 39.71 (the cleaner alignment alone).
 
-**eng_v5** = eng_v4 + the learned endings (`ENDINGS=hybrid`), on that corpus. English equal to eng_v4 (B E6 NT +0.05, OT +0.14;
+**eng_v5** = eng_v4 + the learned endings (`ENDINGS=hybrid`), on that corpus. English equal to eng_v4 (B E6 NT +0.05, Tanakh +0.14;
 dev -0.21 / +0.06); Modern Greek +1.3 (section 4). Swap tests E6: future 1.00, aorist 0.98, plural 1.00.
 
 **The Greek case gap.** A new context key, `GOV_KEY`: the word that governs a noun (a separate preposition by its lemma, the object
@@ -186,7 +186,7 @@ Two switches, both language-neutral (no list of prefixes):
 
 E6, paired bootstrap, ON − OFF:
 
-| | HEBM95 | BSB-NT | BSB-OT | Vamvas |
+| | HEBM95 | BSB-NT | BSB-Tanakh | Vamvas |
 |---|---|---|---|---|
 | PREFIXES=3 | +0.16 [0.01, 0.31] | | | |
 | PRE_FN | +0.08 [0.01, 0.16] | | | |
@@ -221,12 +221,12 @@ article; the word before nouns with the `art` feature against nouns without), bo
 different nouns and to be a noun's whole rendering in <= 5% of its uses. Then a noun's article is learned and chosen with its
 form, as a pair (stem, key, words before) -> (article, head).
 
-Learned: Vamvas αι η ο οι τα τας την της το τον του τους των; BSB-NT the; BSB-OT the that this other; HEBM95 את של.
+Learned: Vamvas αι η ο οι τα τας την της το τον του τους των; BSB-NT the; BSB-Tanakh the that this other; HEBM95 את של.
 
 | E6, ART=learn on - off (paired bootstrap, set B) | chrF |
 |---|---|
-| Vamvas OT | **+1.43** [1.28, 1.59] |
-| BSB OT | +0.41 [0.32, 0.52] |
+| Vamvas Tanakh | **+1.43** [1.28, 1.59] |
+| BSB Tanakh | +0.41 [0.32, 0.52] |
 | BSB NT | +0.14 [0.10, 0.19] |
 | HEBM95 NT | +0.02 [0.01, 0.04] |
 

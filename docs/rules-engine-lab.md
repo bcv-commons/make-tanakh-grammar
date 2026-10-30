@@ -22,12 +22,12 @@ without one starts by building it.
 | rung | source → target | reference | alignment | licence | what it adds |
 |---|---|---|---|---|---|
 | 1 | Greek NT → English | BSB (from the BGB) | the BSB's own table, every word (`orig/grc.sqlite` `bsb`) | PD; MACULA CC BY 4.0 | the pilot: architecture, rule format, measures, the agent loop |
-| 1b | Hebrew OT → English | BSB | `orig/heb.sqlite` `bsb` | PD; MACULA CC BY 4.0 | the second source: does the engine's source layer generalise |
+| 1b | Hebrew → English | BSB | `orig/heb.sqlite` `bsb` | PD; MACULA CC BY 4.0 | the second source: does the engine's source layer generalise |
 | 1c | Greek NT (TR) → English | KJV (1769, `eng-kjv2006`, Strong's-tagged; added 2026-10-26) | to come: lexeme-aligner, full, TR spine (request `scratch/outbox/to-lexeme-aligner-12.md`); their compact `eng_cpb` has content words only | PD outside the UK | thou / ye, -est / -eth, pronoun cases, inversion in questions: the same transfer rules, a second spellout table |
 | 2 | Greek NT → modern Hebrew | HEBM95 (1995 Modern Hebrew, Bible Society in Israel; chosen by the user 2026-10-26) | lexeme-aligner `HEBM95+llm+jev-v4`, the whole NT (27 books, 137,404 rows, function words included; prefixes keep the word whole, the Greek function word points at the word that carries it) | © Bible Society in Israel, not open: local only, like a non-free edition; the user will ask the rights holder | rich morphology: binyanim, prefixed particles, construct state, gender agreement, right to left |
-| 3 | Hebrew OT → Greek | Vamvas (1850, whole Bible) | lexeme-aligner `ell_GreVamvas+llm+jev-v4` (CC0, 39/39 OT books) | CC0 | the reverse direction; cases, articles, participles as target |
-| 3b | Hebrew OT → Koine Greek | the LXX (Swete, PD) | eflomal + Jev alignment to the Hebrew, from lexeme-aligner (the user arranges it, 2026-10-26); CATSS is restricted | to clear | the true Koine case (the LXX is Koine: Jewish translation Greek); only verses where the LXX follows the MT (the LXX quarantine) |
-| 4 | Greek NT / Hebrew OT → Danish | Den Frie Bibel (CC0); our own Danish OT drafts with `.align` | DFB: none yet (to build); ours: exact | CC0 | transfer: how much of the English engine carries to a close language |
+| 3 | Hebrew → Greek | Vamvas (1850, whole Bible) | lexeme-aligner `ell_GreVamvas+llm+jev-v4` (CC0, 39/39 Tanakh books) | CC0 | the reverse direction; cases, articles, participles as target |
+| 3b | Hebrew → Koine Greek | the LXX (Swete, PD) | eflomal + Jev alignment to the Hebrew, from lexeme-aligner (the user arranges it, 2026-10-26); CATSS is restricted | to clear | the true Koine case (the LXX is Koine: Jewish translation Greek); only verses where the LXX follows the MT (the LXX quarantine) |
+| 4 | Greek / Hebrew → Danish | Den Frie Bibel (CC0); our own Danish Tanakh drafts with `.align` | DFB: none yet (to build); ours: exact | CC0 | transfer: how much of the English engine carries to a close language |
 | 5 | → Arabic dialects, … | to find (bcv-commons/bibles catalogue) | to build | to clear | root-and-pattern morphology, diglossia |
 | then | → Kuni, the second Bantu language | the team's text | Jev layers | NC-ND, local | the languages the lab is for |
 
@@ -140,7 +140,7 @@ word reader still misreads a few spans (JHN 1:22, 1:26): to fix in E0.
 | **E3 the first agent round** | the loop of §3 on one difference class, one agent, a small token budget | about 0.5M tokens |
 | **E4 rounds** | clause type by clause type: main clauses, speech frames, participles, subordinate and relative clauses, then the rest of Mark | per round, for go |
 
-Rung 1b (the Hebrew OT into English) follows once Mark's curve flattens; then rung 2.
+Rung 1b (Hebrew into English) follows once Mark's curve flattens; then rung 2.
 
 ## 6. What is parked, and what is kept
 

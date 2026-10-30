@@ -30,11 +30,11 @@ builders write to `$MAKE_TANAKH_PRIVATE/rules/data/`, the runs write their outpu
 
 | rung | source -> target | corpus builder | inputs |
 |---|---|---|---|
-| 1, 1b | Greek NT, Hebrew OT -> English (BSB) | `data/build.py`, `data/build_ot.py`; `data/build_la.py` on lexeme-aligner's BSB layer | the BSB's own alignment tables in the work copy's sources (public domain; MACULA CC BY 4.0) |
-| 1c | Greek NT, Hebrew OT -> English (KJV) | `kjv/build_nt.py`, `kjv/build_ot.py` (download the text) | KJV (public domain outside the UK), lexeme-aligner's layers |
+| 1, 1b | Greek, Hebrew -> English (BSB) | `data/build.py`, `data/build_ot.py`; `data/build_la.py` on lexeme-aligner's BSB layer | the BSB's own alignment tables in the work copy's sources (public domain; MACULA CC BY 4.0) |
+| 1c | Greek, Hebrew -> English (KJV) | `kjv/build_nt.py`, `kjv/build_ot.py` (download the text) | KJV (public domain outside the UK), lexeme-aligner's layers |
 | 2h | Greek NT -> Hebrew (Salkinson-Ginsburg) | `hebnt/build.py` | bcv-commons/alignments-by-id (CC0), the text public domain |
-| 3 | Hebrew OT -> Greek (Vamvas) | `vamvas/build_ot.py` | bcv-commons/full-alignments-llm, Vamvas layer (CC0) |
-| 4 | Hebrew OT -> Danish (our drafts) | `danish/build_ot.py` | the work repo's Danish drafts and their `.align` (CC0) |
+| 3 | Hebrew -> Greek (Vamvas) | `vamvas/build_ot.py` | bcv-commons/full-alignments-llm, Vamvas layer (CC0) |
+| 4 | Hebrew -> Danish (our drafts) | `danish/build_ot.py` | the work repo's Danish drafts and their `.align` (CC0) |
 
 Paths are relative to `lab/rules/`. Reports name the engine version (`eng_v10`) and the work repo's commit.
 

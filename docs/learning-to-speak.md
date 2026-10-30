@@ -57,24 +57,24 @@ The analysis is not wasted. It works for the people and tools around the drafter
 ## The bridge: why Danish shows little gain
 
 The bridge links Hebrew words to the Greek words the Septuagint uses for them. Through it, a team's NT tells the tools how the
-team renders a Hebrew word, even where no OT exists yet. It stands in for missing Old Testament data. Danish has a whole aligned
-Old Testament, so there is little gap to fill.
+team renders a Hebrew word, even where the team has no Tanakh yet. It stands in for the missing Hebrew side. Danish has a whole aligned
+Tanakh, so there is little gap to fill.
 
 | case | gain from the bridge |
 |---|---|
-| Danish engine, 5% of the OT | +2.0 chrF |
-| Danish engine, the whole OT | +0.56 |
+| Danish engine, 5% of the Tanakh | +2.0 chrF |
+| Danish engine, the whole Tanakh | +0.56 |
 | Danish, the reserved final set | +0.035 |
 | Kuni engine, 5% of Genesis | +7.4 |
-| Kuni engine, all its OT | +3.4 |
+| Kuni engine, all the Tanakh text it has | +3.4 |
 | Danish LLM with a retrieved clause | +0.93 |
 
 The full-data Danish case was always the workbench for testing the method, not the target. The target is a language with a full
-NT and little or no OT, like Kuni or Zinza. A Danish team starting the OT from nothing would see the low-data gain. With the
+NT and little or no Tanakh, like Kuni or Zinza. A Danish team starting the Tanakh from nothing would see the low-data gain. With the
 bridge, the Kuni engine reaches its full level from about one and a half chapters of Genesis.
 
-lexeme-aligner measured the same bridge in its aligner, for editions with a thin OT. It gave 1.4 to 5.3 points of alignment F1
-across English, Spanish, Hindi and Arabic. So the bridge is in use wherever the OT is thin.
+lexeme-aligner measured the same bridge in its aligner, for editions with a thin Tanakh. It gave 1.4 to 5.3 points of alignment F1
+across English, Spanish, Hindi and Arabic. So the bridge is in use wherever the Tanakh is thin.
 
 ## What this means for the tools
 

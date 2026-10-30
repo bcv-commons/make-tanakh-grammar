@@ -60,7 +60,7 @@ def main(a):
         verses[k].sort()
     dbs = {}
     for mode in ("words", "parts"):
-        p = os.path.join(PRIV, "data", f"kvg_nt_{mode}.db")
+        p = os.path.join(PRIV, "data", f"{a.prefix}_{mode}.db")
         if os.path.exists(p):
             os.remove(p)
         db = sqlite3.connect(p)
@@ -132,7 +132,7 @@ def main(a):
                         db.execute("insert or ignore into link values (?,?,?,?,?,?)", (w, r, json.dumps(ps), "[]", " ".join(units[p] for p in ps), n))
     for mode, db in dbs.items():
         func = sorted(w for w, c in fnw[mode].items() if sum(c.values()) >= 5 and c[True] * 2 >= sum(c.values()))
-        open(os.path.join(PRIV, "data", f"kvg_nt_{mode}_func.txt"), "w", encoding="utf-8").write("\n".join(func) + "\n")
+        open(os.path.join(PRIV, "data", f"{a.prefix}_{mode}_func.txt"), "w", encoding="utf-8").write("\n".join(func) + "\n")
         st[mode]["function words derived"] = len(func)
         for k, v in st[mode].items():
             db.execute("insert into meta values (?,?)", (k, str(v)))
@@ -143,4 +143,5 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--split-dir", default=os.path.join(os.environ["BCV_COMMONS"], "lexeme-aligner/pipeline/work/kvg-parts/split"))
     ap.add_argument("--layer", default=os.path.join(os.environ["MAKE_TANAKH_PRIVATE"], "align/kvg_m/k/kvg/kvg-m_wbt+llm+jev-v4"))
+    ap.add_argument("--prefix", default="kvg_nt", help="output data/<prefix>_{words,parts}.db (zin_nt_jev for the Zinza layer)")
     main(ap.parse_args())
