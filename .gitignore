@@ -24,5 +24,6 @@
 
 # never, even where a pattern above admits it
 /private/
+/intern-docs/
 /CLAUDE.local.md
 __pycache__/

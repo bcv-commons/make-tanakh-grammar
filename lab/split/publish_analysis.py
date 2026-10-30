@@ -39,7 +39,7 @@ def store_files(pname):
     return sorted(os.path.join(d, f) for f in os.listdir(d) if f.endswith((".json", ".yaml")))
 
 
-FORMAT = 3   # the layout of what is built from a store (2: full conventions.md, jev.md, rules.json, derived names; 3: rule words {words: …}, forms in rules.json); part of the version
+FORMAT = 4   # the layout of what is built from a store (2: full conventions.md, jev.md, rules.json, derived names; 3: rule words {words: …}, forms in rules.json; 4: the marks do not count against the jev.md budget, and what is left out is told in conventions.md and rules.json, not in jev.md); part of the version
 
 
 SOURCE_FORMAT = 2   # the source modules' layout: unchanged by format 3 (rule words are a target-module change)
@@ -131,10 +131,11 @@ def push(yes):
     from huggingface_hub import HfApi
     api = HfApi()
     if not yes:
-        n = sum(len(fs) for _, _, fs in os.walk(OUT))
+        n = sum(1 for d, _, fs in os.walk(OUT) if "__pycache__" not in d for f in fs if not f.endswith(".pyc"))
         print(f"dry run: would upload {OUT} ({n} files) to datasets/{REPO}; rerun with --yes"); return
     api.create_repo(REPO, repo_type="dataset", exist_ok=True)
-    api.upload_folder(folder_path=OUT, repo_id=REPO, repo_type="dataset", commit_message=f"language-analysis {datetime.date.today()}")
+    api.upload_folder(folder_path=OUT, repo_id=REPO, repo_type="dataset", commit_message=f"language-analysis {datetime.date.today()}",
+                      ignore_patterns=["**/__pycache__/**", "*.pyc"])   # importing a bundle locally writes these; never published
     print("pushed", REPO)
 
 

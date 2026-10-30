@@ -190,7 +190,7 @@ def short(text, n=140):
 JEV_BUDGET = int(os.environ.get("JEV_BUDGET") or 8000)   # bytes; to be agreed with lexeme-aligner from their request costs
 # per language, where the default leaves out the rules that matter (user 2026-10-27: Kuni's affixes and protected words
 # filled 8 KB, leaving 1 of 31 team decisions); a language here gets a new version anyway when its store changes
-JEV_BUDGET_FOR = {"kvg": 16000}
+JEV_BUDGET_FOR = {"kvg": 16300}   # 16000 + the format-3 header sentence on {words: …} (lexeme-aligner, 2026-10-30: keep every rule d8fdb53e had)
 JEV_SECTIONS = [("affix", "Affixes: part → what it links to", None), ("word", "Never divided (or only as shown)", None),
                 ("team", "The translation team's decisions", 140), ("letter", "Letters in names", None),
                 ("grammar", "Linking facts", 140), ("alternation", "Two words with the same letters", None)]   # in this order; affixes and words always, the rest line by line to the budget
@@ -221,6 +221,7 @@ def jev(lang, pname, rules, version_note):
            "them is in the request. A line without it is general.", ""]
     left = []
     budget = int(os.environ.get("JEV_BUDGET") or JEV_BUDGET_FOR.get(lang, JEV_BUDGET))
+    marks = 0                                                         # bytes of {words: …} marks written so far
     if EXAMPLES:
         cr = credit(pname)
         out += [f"Examples in *italics* are short quotations from the edition, with their verse: {cr}. They are not under "
@@ -240,14 +241,15 @@ def jev(lang, pname, rules, version_note):
             ex = f" e.g. *{r['example']}*" if EXAMPLES and r.get("example") else ""
             ws = f" {{words: {' '.join(r['words'])}}}" if r.get("words") and sec in ("team", "grammar") else ""
             line = f"- {r.get('jev') or (short(r['text'], n) if n else r['text'])}{ex}{ws} [`{r['id']}` {r['status']} {r['method']}]"
-            if sec not in ("affix", "word", "alternation") and len("\n".join(out + [line]).encode()) > budget - 200:
+            size = len("\n".join(out + [line]).encode()) - marks - len(ws.encode())   # the marks do not count: an aligner
+            if sec not in ("affix", "word", "alternation") and size > budget - 200:     # shows a marked line only where its words occur
                 break
-            out.append(line); k += 1
+            out.append(line); marks += len(ws.encode()); k += 1
         if k < len(rs):
             left.append(f"{title}: {len(rs) - k} of {len(rs)}")
         out.append("")
-    if left:
-        out += [f"Left out for the size limit ({budget} bytes): " + "; ".join(left) + ". They are in `conventions.md`.", ""]
+    # what was left out is told in conventions.md and rules.json, not here: a line that changes with every store update would
+    # change every request built from this file and defeat an aligner's answer cache (lexeme-aligner, 2026-10-30)
     return "\n".join(out), left
 
 
@@ -336,10 +338,14 @@ def main():
     L += ["## Names and terms", "", f"`terms.tsv`: {n_terms} rows, source lemma → target"
           + (f" ({len(dn)} names derived from the NT's alignment, ids `lang:name:…`)" if dn else "")
           + (f"; {no_src} store entries without a Greek or Hebrew source are left out." if no_src else "."), ""]
-    open(os.path.join(out, "conventions.md"), "w", encoding="utf-8").write("\n".join(L))
     J, left = jev(lang, pname, rules, None)
+    budget = int(os.environ.get("JEV_BUDGET") or JEV_BUDGET_FOR.get(lang, JEV_BUDGET))
+    L += ["## The aligner's short form", "", "`jev.md` holds the rules that bear on linking, within " + f"{budget} bytes"
+          + (" (the `{words: …}` marks not counted). Left out for the size limit: " + "; ".join(left) + "." if left else
+             " (the `{words: …}` marks not counted); nothing left out."), ""]
+    open(os.path.join(out, "conventions.md"), "w", encoding="utf-8").write("\n".join(L))
     open(os.path.join(out, "jev.md"), "w", encoding="utf-8").write(J)
-    json.dump({"format": "bcv-conventions-rules/0.1", "store": pname, "rules": rules},
+    json.dump({"format": "bcv-conventions-rules/0.1", "store": pname, "jev_budget": budget, "jev_left_out": left, "rules": rules},
               open(os.path.join(out, "rules.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(out, "rules", len(rules), "affixes", len(morphs), "words", len(words), "team", len(team), "grammar", len(feats),
           "letters", len(letters), "terms", n_terms, "no source", no_src, "derived names", len(dn), "bytes", len("\n".join(L).encode()), "jev", len(J.encode()), "left out", left)
