@@ -84,3 +84,10 @@
   lexeme tiers and the grammar bridge (strong_bridge.py --tiers, spine merges derived; grammar_bridge.py --bridge --tiers --out, .tsv).
   Analysis dataset pushed by the user (fe645bf6, format 3); format 4 built for lexeme-aligner's cache (conventions.py), not pushed.
   Agent runs this round: 30 (Kuni 10, Danish 20). Jev $0.40.
+- 2026-10-30 night (user: test weighted variants of the bridge table locally, after lexeme-aligner found our whole table null as
+  NT-bridge priors in their chain): prior_variants.py on Kuni RUT + JON (1,301 Hebrew content tokens, two eflomal runs), top-1 hit of
+  the prior against the reference word. Their lxx_greek with their recipe 0.148 / 0.138; the same Greek list weighted by the LXX share
+  and summed 0.217 / 0.215 (same coverage 0.845); plus GLAUx pairs for Greek content words outside the NT's 50 most frequent 0.234 /
+  0.232; count cuts lower; the jev tier adds nothing; top-5 flat. The gain is in the weighting: their build_priors counts every Greek
+  equivalent in full. Proxy only (Jev references); a note proposing the weighting waits for the user (not sent).
+  docs/learning-to-speak.md: the picture for new users (exposure for the drafter, grammar for the tools around it).

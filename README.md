@@ -20,7 +20,7 @@ releases. How the three repos relate: [RELATIONS.md](RELATIONS.md).
 | `lab/split/` | the language analysis: conventions modules, segmenter bundle, split files, `publish_analysis.py` (the HF dataset) |
 | `lab/contract/` | the contract test: one chapter of each format the lab reads from the work repo, as schemas, counts and hashes; `check.py` fails when a toolkit update changes a format |
 | `lab/heldout/` | held-out test setup (edition copy, store scrub) for Step A |
-| `docs/` | the lab plan, research notes, the split inventory |
+| `docs/` | the lab plan, research notes, the split inventory; `learning-to-speak.md`, how the tools fit around an LLM drafter (start here) |
 
 ## What you can reproduce
 
