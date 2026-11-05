@@ -1,0 +1,6 @@
+# Words that tools/screen.py admits although the Kuni NT uses them: names and forms admitted on purpose, each with its
+# reason. Keep it short; a Kuni word form goes here only when it is a fact about the language we publish anyway (the
+# store on bcv-commons/language-analysis), never a piece of the text.
+kuni        # the language's name
+tanakh      # the project's name
+noqa        # flake8's marker

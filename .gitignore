@@ -1,0 +1,24 @@
+# An allowlist: this repository is public, the texts it works from are not. Everything is ignored except code, docs, the
+# licences and the few data files admitted below; anything new stays local until it is admitted here on purpose. The
+# pre-commit hook (tools/screen.py) screens what is admitted.
+*
+!*/
+!*.py
+!*.sh
+!*.md
+!/LICENSE
+!/LICENSE-docs
+!/.gitignore
+!/.githooks/
+!/.githooks/*
+!/tools/screen_allow.txt
+# the closed list: chapters and books held out of every evidence pool, training and measurement (no text)
+!/shared/closed.json
+
+# never, even where a pattern above admits it
+/private/
+/internal-docs/
+/external/
+/CLAUDE.local.md
+/env.local.sh
+__pycache__/

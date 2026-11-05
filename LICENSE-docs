@@ -1,0 +1,11 @@
+The documentation, prompt templates and project/edition templates of this
+repository (README.md, docs/, import/_template/, export/_template/) are
+dedicated to the public domain under CC0 1.0 Universal:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The drafts in export/ are dedicated to the public domain under CC0 1.0 as well
+(export/README.md).
+
+The Bible texts in reference/BSB/, reference/MSB/, orig/ and download/ keep their own licences,
+listed in README.md and docs/sources.md. The editions in import/ keep their own
+licences, by folder (import/README.md).
