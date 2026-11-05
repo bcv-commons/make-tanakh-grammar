@@ -1,11 +1,8 @@
-The documentation, prompt templates and project/edition templates of this
-repository (README.md, docs/, import/_template/, export/_template/) are
-dedicated to the public domain under CC0 1.0 Universal:
+The documentation of this repository (README.md, CLAUDE.md and its other
+Markdown files) is dedicated to the public domain under CC0 1.0 Universal:
 https://creativecommons.org/publicdomain/zero/1.0/
 
-The drafts in export/ are dedicated to the public domain under CC0 1.0 as well
-(export/README.md).
+The code is under the MIT licence (LICENSE).
 
-The Bible texts in reference/BSB/, reference/MSB/, orig/ and download/ keep their own licences,
-listed in README.md and docs/sources.md. The editions in import/ keep their own
-licences, by folder (import/README.md).
+This repository holds no Bible text. The texts it works from keep their own
+licences and stay outside it.

@@ -1,7 +1,7 @@
 {
  "version": "4",
  "date": "2026-11-04",
- "note": "Material no measurement, evidence figure or tuning choice may read (target text, scores). The units layer still covers it: source labels are input, not test material. Decision 5 of internal-docs/convention-0.0.2-decisions.md. Version 2 adds the reserved final set (user, 2026-11-03): chapters held out of every training and read once, for a final table only; the measurement closure of version 1 is unchanged, so figures under version 1 stay valid (history). Version 3 (user, 2026-11-04) adds Luke 1, 2 and 15 as the drafter's held-out chapters; figures under versions 1 and 2 that trained on them stay valid as history. Version 4 (user, 2026-11-04) adds PHP 3, ACT 1 and MAT 21, the held-out chapters for the next final figures, picked by rule; figures that trained on them before stay valid as history.",
+ "note": "Chapters and books that no evidence pool, training set, measurement or tuning choice may read (the team's text, scores). Source labels of these chapters are input, not test material, and may be used. Version 1 (2026-11-03) closed the test chapters and books for measurement. Version 2 (2026-11-03) added the reserved final set: chapters held out of every training and read once, for a final table only. Version 3 (2026-11-04) added Luke 1, 2 and 15 as the drafter's held-out chapters. Version 4 (2026-11-04) added PHP 3, ACT 1 and MAT 21, picked by rule. Figures made under an earlier version stay valid as history.",
  "chapters": [
   [
    "GEN",
@@ -69,12 +69,12 @@
   "JAS"
  ],
  "reasons": {
-  "GEN 22, 37, 44": "the rules-engine lab's test chapters (CLAUDE.md)",
+  "GEN 22, 37, 44": "the test chapters of the rules-engine research",
   "MRK": "the drafter's test book, read only on the user's go",
   "JAS": "Den Frie Bibel NT's test book",
   "1SA 17-18, ISA 36-37, NEH 1-2": "the reserved final set (replaces 1KI 17-19, 2SA 11-12, JER 36-38, read for the engine on 2026-10-30); held out of training, read once for a final table",
-  "LUK 1, 2, 15": "the drafter's held-out chapters for the complete-meaning test (TBTA covers all of Luke; the team's Zinza text is the gold); held out of every training from 2026-11-04 (DRAFTER_HOLDOUT), read by heldout.py only",
-  "PHP 3, ACT 1, MAT 21": "held-out chapters for the next final figures (Luke 1, 2, 15 were read once): rule = TBTA NT chapters with >= 15 verses in both the Zinza and the Kuni parts corpora, outside JHN (dev), MRK, JAS and LUK 1, 2, 15; random.Random(20261104) shuffle; the first three from different books. Held out of every training (DRAFTER_HOLDOUT, NLLB data); read once at the end"
+  "LUK 1, 2, 15": "the drafter's held-out chapters for the complete-meaning test (TBTA covers all of Luke; the team's Zinza text is the gold); held out of every training from 2026-11-04 (DRAFTER_HOLDOUT); read once, in research",
+  "PHP 3, ACT 1, MAT 21": "held-out chapters for the next final figures (Luke 1, 2, 15 were read once): rule = TBTA NT chapters with >= 15 verses in both the Zinza and the Kuni parts corpora, outside JHN (dev), MRK, JAS and LUK 1, 2, 15; random.Random(20261104) shuffle; the first three from different books. Held out of every training and every evidence pool (DRAFTER_HOLDOUT); not read yet, kept for a later acceptance test"
  },
  "reserved_final": [
   [
