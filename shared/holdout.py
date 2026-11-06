@@ -39,6 +39,18 @@ def parse(spec):
     return out
 
 
+def shut(cfg):
+    """(book, chapter) -> True when no pool, training set or measurement of this language may read the chapter: the language's own
+    held-out chapters, DRAFTER_HOLDOUT, and the closed list where the language's configuration says it applies"""
+    held = parse(os.environ.get("DRAFTER_HOLDOUT")) | parse(";".join(cfg.get("held_out", [])))
+    c = closed() if cfg.get("closed_list") else {"books": set(), "chapters": set()}
+
+    def f(book, chapter):
+        return book in c["books"] or (book, int(chapter)) in c["chapters"] or (book, int(chapter)) in held
+    f.books = set(c["books"]); f.chapters = set(c["chapters"]) | held
+    return f
+
+
 def check_env():
     """exit unless DRAFTER_HOLDOUT covers every held-out chapter (. ./env.sh sets the default)"""
     missing = HELD_OUT - parse(os.environ.get("DRAFTER_HOLDOUT"))

@@ -10,6 +10,9 @@ Read `README.md` first.
   `MAKE_TANAKH_PRIVATE`, `BCV_COMMONS`); never write a path of this box into code.
 - `MAKE_TANAKH_PRIVATE` (default `./private`, never tracked): corpora, run outputs, everything from a protected text.
 - `.gitignore` is an allowlist; the pre-commit hook (`core.hooksPath .githooks`) runs `tools/screen.py`.
+- `python3 tools/setup.py` checks the box; `python3 -m unittest discover -s tests -p "test_*.py"` runs the unit tests;
+  `tests/parity.py` compares prompts with the research repository (legacy mode) where that repository is present.
+- LLM runs go through the `claude` CLI on the subscription (`shared/llm.py`); at most two processes at once.
 
 ## Binding rules
 
@@ -19,7 +22,9 @@ Read `README.md` first.
 - **The closed list holds.** Every step that builds a pool of a team's text, trains a model or scores a draft asks
   `shared/holdout.py` first. Never draft, score or open a closed chapter without the user's go.
 - **Production imports nothing from the research repository.** Research may import production, never the reverse. Code is
-  brought over only when it runs here on its own; scoring and experiments stay in research.
+  brought over only when it runs here on its own. One yardstick lives here (`drafting/devcheck.py`: a draft against the
+  team's text on dev chapters); arms, oracles, experiments and every read of a closed chapter stay in research.
+- **Rights before data moves.** A step that sends a team's text anywhere asks `shared/rights.py` first.
 - **Outward-facing actions need the user's go:** pushes to Hugging Face, publishing to a language repository, notes and
   issues in other repositories.
 - Never write "OT" or "Old Testament" in prose: Tanakh, Hebrew, Septuagint.

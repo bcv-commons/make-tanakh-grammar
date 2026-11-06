@@ -1,0 +1,9 @@
+# For the NLLB alternative (alternatives/nllb.py) and its trainer (alternatives/nllb_train.py); not needed for the main draft.
+ctranslate2>=4.4
+transformers>=4.40
+sentencepiece
+sacrebleu>=2.4
+# training only (a GPU with 8 GB is enough for NLLB-200-distilled-600M):
+torch
+datasets
+accelerate
