@@ -128,6 +128,36 @@ class Alignment(unittest.TestCase):
             got = align.read_layer(d, units, "RUT", 1, {1: "aa bbcc dd"})
         self.assertEqual(got[1], ("0:0 1:1 2:2", ""))
 
+    def test_text_step_bridges_and_notes(self):
+        try:
+            from onboard import align
+        except Exception:
+            self.skipTest("the toolkit is not on the path")
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "mrk015.txt"), "w", encoding="utf-8").write("v1 aa bb.{T: a note} v2-3 cc dd v4 ee. Big heading, more 15:5–18:2\n")
+            n = align.export_chapters(d, os.path.join(d, "out"))
+            got = open(os.path.join(d, "out", "MRK.txt"), encoding="utf-8").read()
+        self.assertEqual((n, got), (3, "15:1 aa bb.\n15:2-3 cc dd\n15:4 ee.\n"))
+
+    def test_lexicon_ids_and_bare_forms(self):
+        try:
+            from onboard import lexicon
+        except Exception:
+            self.skipTest("the toolkit is not on the path")
+        self.assertEqual([lexicon.lex_id("hbo", "0776"), lexicon.lex_id("hbo", "2050b"), lexicon.lex_id("grc", "26"), lexicon.lex_id("grc", "")],
+                         ["hbo:776", "hbo:2050b", "grc:26", None])
+        self.assertEqual(lexicon.bare("dèmaluéf kø̄", {"\u0304"}), "demaluef kø̄")
+
+    def test_parts_get_the_words_marks_back(self):
+        try:
+            from onboard import corpus
+        except Exception:
+            self.skipTest("the toolkit is not on the path")
+        self.assertEqual(corpus.with_marks("dèmaluéf", ["de", "maluef"]), ["dè", "maluéf"])
+        self.assertEqual(corpus.with_marks("køpimat-qa", ["køpim", "at", "qa"]), ["køpim", "at", "qa"])
+        self.assertEqual(corpus.with_marks("abc", ["ab", "x"]), ["ab", "x"])               # letters that do not match: as they are
+
     def test_kinds_of_a_bundle(self):
         from publish import align
         import tempfile

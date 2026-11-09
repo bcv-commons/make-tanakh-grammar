@@ -11,10 +11,13 @@ Built from two inputs, named in the language's configuration under the corpus ("
           a published layer on the written words with a parts channel (lexeme-aligner's, at its pin), or the layer of a
           local run on the parts view (onboard/align.py); then "units" names the view's unit map (units.json), which says which
           token and part each of the layer's positions is, and "view" the view itself: the corpus's parts are then the view's
-          units as the aligner saw them (a divided word's parts without their marks, a part without letters left out)
+          units as the aligner saw them (a part without letters left out), each divided word's parts written with the word's
+          own marks (the view writes them without)
 
 A book whose text fingerprint in the layer is not the split file's is skipped and reported: the two inputs must be of the
-same text. The source words are named by the toolkit's public index (compact-alignments).
+same text. A published layer of another edition with the same wording (the corpus entry says "verses": true) is checked
+verse by verse instead: a verse is taken only where its tokens are the published text's (_verses.json beside the layer,
+written by onboard/align.py published). The source words are named by the toolkit's public index (compact-alignments).
 
     . ./env.sh
     python3 onboard/corpus.py build --lang zin [--source grc]        -> the corpus named in the configuration (replaced)
@@ -87,15 +90,59 @@ def slots_of(rows):
 
 
 def read_split(d):
-    """(book, ch, v) -> [(token index, part, text, slot, position)] in reading order; and the books' text fingerprints"""
+    """(book, ch, v) -> [(token index, part, text, slot, position)] in reading order; the books' text fingerprints; and
+    (book, ch, v) -> {token index: the word as written}: the split's `word`, verse-text's tokenize_written (the same
+    tokens at the same positions with their marks; the aligner's token, tokenize, drops every mark NFC cannot compose:
+    Kuni's grave and macron on ø and æ, and U+1DC4)"""
     import pyarrow.parquet as pq
-    rows = pq.read_table(os.path.join(d, "words.parquet"), columns=["book", "chapter", "verse", "i", "part", "text", "slot", "position"]).to_pylist()
-    verses = collections.defaultdict(list)
+    if "word" not in pq.read_schema(os.path.join(d, "words.parquet")).names:
+        sys.exit(f"{d}: the split file has no `word` column (the word as written, verse-text's tokenize_written): write it with onboard/split_export.py")
+    rows = pq.read_table(os.path.join(d, "words.parquet"), columns=["book", "chapter", "verse", "i", "token", "word", "part", "text", "slot", "position"]).to_pylist()
+    verses = collections.defaultdict(list); toks = collections.defaultdict(dict); aligner = collections.defaultdict(dict)
     for r in rows:
-        verses[(r["book"], int(r["chapter"]), int(r["verse"]))].append((int(r["i"]), int(r["part"]), r["text"], r["slot"], r["position"]))
+        k = (r["book"], int(r["chapter"]), int(r["verse"]))
+        verses[k].append((int(r["i"]), int(r["part"]), r["text"], r["slot"], r["position"])); aligner[k][int(r["i"])] = r["token"] or ""
+        toks[k][int(r["i"])] = r["word"] if r["word"] is not None else r["token"] or ""
     for k in verses:
         verses[k].sort(key=lambda x: (x[0], x[1]))
-    return verses, json.load(open(os.path.join(d, "_split.json"), encoding="utf-8"))
+    hashes = {k: verse_hash([v[i] for i in sorted(v)]) for k, v in aligner.items()}
+    return verses, json.load(open(os.path.join(d, "_split.json"), encoding="utf-8")), toks, hashes
+
+
+def verse_hash(tokens):
+    """the token check of one verse (the aligner's tokens): what `onboard/align.py published` writes for a published text"""
+    import hashlib
+    return hashlib.sha1(" ".join(tokens).encode()).hexdigest()[:16]
+
+
+def published_verses(layer_dir):
+    """{"BOOK c:v": token check} of a published layer's text (onboard/align.py published), or None"""
+    p = os.path.join(layer_dir, "_verses.json")
+    return json.load(open(p, encoding="utf-8")) if os.path.exists(p) else None
+
+
+def with_marks(token, texts):
+    """the parts of one word written with the word's own marks: the view and the split write a divided word's parts without
+    the marks the segmenter took off as a tone part (Kuni). Each part takes its letters' characters from the token as
+    written, marks included; the texts as they are when the letters do not match"""
+    cl = []
+    for ch in unicodedata.normalize("NFD", token):
+        if unicodedata.combining(ch) and cl:
+            cl[-1] += ch
+        else:
+            cl.append(ch)
+    base = lambda s: "".join(c for c in unicodedata.normalize("NFD", s) if not unicodedata.combining(c)).lower()
+    out, i = [], 0
+    for t in texts:
+        b = base(t); got = ""
+        for ch in b:
+            while i < len(cl) and not base(cl[i]):     # characters without a letter of their own
+                i += 1
+            if i >= len(cl) or base(cl[i]) != ch:
+                return texts
+            got += cl[i]; i += 1
+        out.append(unicodedata.normalize("NFC", got))
+    return out
 
 
 def read_view(d):
@@ -121,8 +168,11 @@ def cmd_build(a):
     if not x or not x.get("split") or not x.get("layer"):
         sys.exit(f"{a.lang}: the configuration's {a.source} corpus names no \"split\" and \"layer\" to build from")
     hebrew = a.source == "hbo"; mine = set(tokens.books(a.source)); seen = set(); kcol = x.get("key", "word" if hebrew else "key")
-    sd, ld = paths.resolve(a.lang, x["split"]), paths.resolve(a.lang, x["layer"]); verses, hdr = read_split(sd); fp = hdr["text_fp"]
+    sd, ld = paths.resolve(a.lang, x["split"]), paths.resolve(a.lang, x["layer"]); verses, hdr, written, vhash = read_split(sd); fp = hdr["text_fp"]
     umap = json.load(open(paths.resolve(a.lang, x["units"]), encoding="utf-8")) if x.get("units") else None
+    vcheck = published_verses(ld) if x.get("verses") else None
+    if x.get("verses") and vcheck is None:
+        sys.exit(f"{ld}: no _verses.json (onboard/align.py published)")
     vtext = read_view(paths.resolve(a.lang, x["view"])) if x.get("view") else None
     os.makedirs(os.path.dirname(x["_db"]), exist_ok=True); tmp = x["_db"] + ".tmp"
     if os.path.exists(tmp):
@@ -138,7 +188,7 @@ def cmd_build(a):
         book, f = os.path.basename(lf)[:-5].split("_")
         if book not in mine or book in exclude:
             continue
-        if umap is None and fp.get(book) != f:
+        if umap is None and vcheck is None and fp.get(book) != f:
             skipped.append(book); continue
         main_s = json.load(open(lf, encoding="utf-8")); meta = json.load(open(lf[:-5] + ".meta.json", encoding="utf-8"))
         fn_s = meta.get("fn") or [""] * len(main_s); parts_s = meta.get("parts") or [""] * len(main_s)
@@ -147,6 +197,8 @@ def cmd_build(a):
             c, v = (int(n) for n in r.split(" ")[1].split(":")); rows = verses.get((book, c, v))
             if not rows:
                 st["source verses without text"] += 1; continue
+            if vcheck is not None and vcheck.get(r) != vhash.get((book, c, v)):
+                st["verses whose tokens are not the published text's (left out)"] += 1; continue
             ref = r
             if hebrew:                                     # r is in the Hebrew numbering; the corpus is keyed by the team's
                 e = vrs.to_bsb(book.lower(), c, v)
@@ -170,6 +222,14 @@ def cmd_build(a):
                     else:
                         text, slot, posn = srow[t].get(part, ("", "stem", None)); urows.append((t, part, vt[n] if vt else text, slot, posn))
                 rows = urows
+            tw = written.get((book, c, v), {}); rows = list(rows)
+            for t in {t for t, *_ in rows}:                # every word's parts get the word's own marks back
+                ix = [n for n, u in enumerate(rows) if u[0] == t]
+                if tw.get(t):
+                    for n, txt in zip(ix, with_marks(tw[t], [rows[n][2] for n in ix])):
+                        rows[n] = rows[n][:2] + (txt,) + rows[n][3:]
+            empty = {(t, p) for t, p, text, *_ in rows if not text and p}  # a part without letters (a tone the segmenter took
+            rows = [r_ for r_ in rows if r_[:2] not in empty]              # off: its marks are on the stem now) is left out
             toks = sorted({t for t, *_ in rows}); rank = {t: n for n, t in enumerate(toks)}
             flat = {(t, p): n for n, (t, p, *_) in enumerate(rows)}; byt = collections.defaultdict(list)
             for n, (t, p, text, slot, posn) in enumerate(rows):
@@ -187,6 +247,8 @@ def cmd_build(a):
                         tp = [p_ for p_ in ps if p_ < len(rows)]
                     elif spec:
                         for t, part in spec:
+                            if (t, part) in empty:
+                                continue
                             tp += [flat[(t, part)]] if part is not None and (t, part) in flat else [n for (t2, _), n in flat.items() if t2 == t]
                     else:
                         tp = [n for (t2, _), n in flat.items() if t2 in ps]

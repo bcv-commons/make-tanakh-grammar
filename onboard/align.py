@@ -3,8 +3,10 @@
 can be stopped and run again (a step whose output is there is not run twice).
 
     . ./env.sh
-    python3 onboard/align.py run --lang xxx [--jev --max-usd 5]     # every step, in order
+    python3 onboard/align.py run --lang xxx [--jev [--books GEN] --max-usd 5]     # every step, in order
     python3 onboard/align.py status --lang xxx
+    python3 onboard/align.py published --lang xxx --text DIR --layer DIR [--layer DIR]
+                                         # a published layer of the same wording: the token check of each of its verses
 
 The language's configuration names the inputs:
 
@@ -14,14 +16,21 @@ The language's configuration names the inputs:
     "corpora": [{"source": "grc", "db": "corpus/nt_parts.db", "key": "key"}]
 
 Steps, each into $MAKE_TANAKH_PRIVATE/lang/<iso>/align/:
-  text    the text as one file per book, one verse per line (`c:v text`). The toolkit's chapter files are converted;
-          anything else the aligner reads (USFM, USJ, a vref corpus, plain text) is handed over as it is
+  text    the text as one file per book, one verse per line (`c:v text`, a bridged verse `c:v-w text`). The toolkit's
+          chapter files are converted; anything else the aligner reads (USFM, USJ, a vref corpus, plain text) is handed
+          over as it is
   words   lexeme-aligner align-text on the written words -> out_words/ (and the text as USJ)
   split   the text divided by the language's segmenter bundle -> split/ (onboard/split_export.py)
   view    the parts view: every divided word written as its parts -> view/ (and units.json: which token and part each unit is)
   parts   align-text again on the parts view -> out_parts/. With --jev the paid pass of TypeSafe's Jev runs on it, with your
           key and only up to --max-usd (without --max-usd it only estimates; nothing is sent)
   corpus  the corpus (onboard/corpus.py) from the split file and the newest parts layer (the Jev layer when there is one)
+
+A published layer (full-alignments-llm, compact-alignments) of an edition with the team's wording can stand in for the
+local one: `published` reads that edition's text (USFM, USJ, plain text), and writes beside each layer `_verses.json`, the
+token check of every verse (a hash of the aligner's tokens). A corpus entry that names the layer and `"verses"` takes from
+it only the verses whose tokens are the team's (onboard/corpus.py, onboard/lexicon.py); `run` leaves such an entry's layer
+as it is. Kuni: the NT, Ruth and Jonah from the published Jev layers, Genesis 1-30 from the local run (--books GEN).
 
 The aligner is lexeme-aligner at its pin (shared/pins.py), found through LEXEME_ALIGNER (its checkout, with its .venv);
 it runs locally and writes only into the out folders. A protected text never leaves the box in these steps except to Jev,
@@ -71,6 +80,11 @@ def to_hebrew(book):
     return out
 
 
+# a major section heading (USFM \ms with its \mr range) that the toolkit's chapter files leave at the end of a verse:
+# "... last sentence. Heading words 15:36–18:22"
+MAJOR = re.compile(r"(?<=[.!?”’»\"\)])\s+[^.!?”’»\"\n{}]*?\s\d+:\d+[–-]\d+:\d+(?=\s|$)")
+
+
 def export_chapters(src, out, numbering="english"):
     """the toolkit's chapter files (<book>NNN.txt with vN markers) -> one <BOOK>.txt per book, `c:v text`, NFC. A book of the
     Tanakh is written in the Hebrew Bible's numbering (the aligner and the corpus builder read it by the Hebrew verse)."""
@@ -80,13 +94,14 @@ def export_chapters(src, out, numbering="english"):
         for f in sorted(glob.glob(os.path.join(src, f"{book.lower()}[0-9][0-9][0-9].txt"))):
             ch = int(os.path.basename(f)[3:6])
             body = "\n".join(l for l in open(f, encoding="utf-8") if not l.startswith(("!!<", "==", "#")))
-            body = re.sub(r"\{[A-Z]:[^}]*\}", "", body); ms = list(re.finditer(r"(?:^|(?<=\s))v(\d+)\s", body))
+            body = MAJOR.sub("", re.sub(r"\{[A-Z]:[^}]*\}", "", body)); ms = list(re.finditer(r"(?:^|(?<=\s))v(\d+)(?:-(\d+))?\s", body))
             for m, nxt in zip(ms, ms[1:] + [None]):
-                t = " ".join(body[m.end():nxt.start() if nxt else None].split())
-                c, v = heb.get((ch, int(m.group(1))), (None, None)) if heb is not None else (ch, int(m.group(1)))
-                if t and c is not None:
-                    lines.append(f"{c}:{v} {unicodedata.normalize('NFC', t)}")
-        lines.sort(key=lambda l: tuple(int(x) for x in l.split(" ", 1)[0].split(":")))
+                t = " ".join(body[m.end():nxt.start() if nxt else None].split()); v1 = int(m.group(1)); v2 = int(m.group(2) or 0)
+                c, v = heb.get((ch, v1), (None, None)) if heb is not None else (ch, v1)
+                c2, w = (heb.get((ch, v2), (None, None)) if heb is not None else (ch, v2)) if v2 > v1 else (None, None)
+                if t and c is not None:                                  # a bridged verse (v27-28) is written `c:v-w text`
+                    lines.append(f"{c}:{v}{f'-{w}' if c2 == c and w > v else ''} {unicodedata.normalize('NFC', t)}")
+        lines.sort(key=lambda l: tuple(int(x) for x in re.split(r"[:-]", l.split(" ", 1)[0])[:2]))
         open(os.path.join(out, f"{book}.txt"), "w", encoding="utf-8").write("\n".join(lines) + "\n"); n += len(lines)
     return n
 
@@ -199,7 +214,7 @@ def cmd_run(a):
         cmd = [exe, "align-text", "--usj", adir(a.lang, "view"), "--edition", ed + "-m", "--out", adir(a.lang, "out_parts"), "--force"] + common
         env = dict(os.environ)
         if a.jev:
-            env = jev_env(cfg); cmd += ["--jev"] + (["--max-usd", str(a.max_usd)] if a.max_usd else [])
+            env = jev_env(cfg); cmd += ["--jev"] + (["--max-usd", str(a.max_usd)] if a.max_usd else []) + (["--books", a.books] if a.books else [])
         run(cmd, log, env=env); rec["steps"].append("parts"); print("parts: aligned", flush=True)
         j = json.load(open(adir(a.lang, "out_parts", "align-text-run.json"), encoding="utf-8")).get("jev") or {}
         if a.jev and j:
@@ -217,23 +232,49 @@ def cmd_run(a):
         c = next((c for c in raw.setdefault("corpora", []) if c["source"] == source), None)
         if c is None:
             c = {"source": source, "db": db, "key": key}; raw["corpora"].append(c)
-        c.update(split="align/split", layer=os.path.relpath(layer, paths.lang_dir(a.lang)), units="align/units.json", view="align/view")
-        built.append((source, layer))
-    json.dump(raw, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        if c.get("verses"):                                           # a published layer stands in: only the split is ours
+            c["split"] = "align/split"
+        else:
+            c.update(split="align/split", layer=os.path.relpath(layer, paths.lang_dir(a.lang)), units="align/units.json", view="align/view")
+        built.append((source, paths.resolve(a.lang, c["layer"]) if c.get("verses") else layer))
+    json.dump(raw, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False); c_pub = {c["source"]: c.get("verses") for c in raw["corpora"]}
     for source, layer in built:
         run([sys.executable, os.path.join(HERE, "corpus.py"), "build", "--lang", a.lang, "--source", source], log)
         print(f"corpus ({'the New Testament' if source == 'grc' else 'the Tanakh'}): built from "
-              + ("the Jev layer" if "+jev" in layer else "the base layer (no Jev pass)"), flush=True)
+              + (("the published layer " if c_pub.get(source) else "the Jev layer ") + os.path.basename(layer) if "+jev" in layer
+                 else "the base layer (no Jev pass)"), flush=True)
     rec["steps"].append("corpus"); rec["layers"] = dict(built)
     hist = adir(a.lang, "runs.json"); h = json.load(open(hist)) if os.path.exists(hist) else []
     h.append(rec); json.dump(h, open(hist, "w"), indent=1); cmd_status(a)
 
 
+def cmd_published(a):
+    """the token check of every verse of a published layer's text, written beside each layer (_verses.json)"""
+    cfg = paths.config(a.lang, built=False); L = aligner(); log = adir(a.lang, "align.log"); os.makedirs(adir(a.lang), exist_ok=True)
+    code = ("import hashlib, json, sys, tempfile; from pathlib import Path\n"
+            "from lexeme_aligner import text_input, usj_source; from lexeme_aligner.text_fingerprint import usj_verses\n"
+            "out = {}\n"
+            "with tempfile.TemporaryDirectory() as d:\n"
+            "    d = Path(d); text_input.prepare(Path(sys.argv[1]), d)\n"
+            "    for f in sorted(d.glob('*.json')):\n"
+            "        b = f.stem.split('-', 1)[1]\n"
+            "        for (c, v), t in usj_verses(f).items():\n"
+            "            out[f'{b} {c}:{v}'] = hashlib.sha1(' '.join(usj_source.tokenize(t)).encode()).hexdigest()[:16]\n"
+            "for p in sys.argv[2:]:\n"
+            "    json.dump(out, open(Path(p) / '_verses.json', 'w'), indent=0)\n"
+            "print('verses', len(out), 'books', len({k.split()[0] for k in out}))")
+    run([os.path.join(L, ".venv", "bin", "python"), "-c", code, paths.resolve(a.lang, a.text)] + [paths.resolve(a.lang, x) for x in a.layer],
+        log, cwd=os.path.join(L, "pipeline"))
+    print("written:", ", ".join(os.path.join(x, "_verses.json") for x in a.layer))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=("run", "status")); ap.add_argument("--lang", required=True)
+    ap.add_argument("cmd", choices=("run", "status", "published")); ap.add_argument("--lang", required=True)
     ap.add_argument("--jev", action="store_true"); ap.add_argument("--max-usd", type=float)
-    a = ap.parse_args(); {"run": cmd_run, "status": cmd_status}[a.cmd](a)
+    ap.add_argument("--books", help="with --jev: only these books (comma-separated)")
+    ap.add_argument("--text", help="published: the published layer's text"); ap.add_argument("--layer", action="append", default=[])
+    a = ap.parse_args(); {"run": cmd_run, "status": cmd_status, "published": cmd_published}[a.cmd](a)
 
 
 if __name__ == "__main__":

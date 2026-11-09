@@ -63,7 +63,7 @@ def run_text(lang, cfg, drafts, out):
         if b in excl:
             continue
         for l in open(f, encoding="utf-8"):
-            m = re.match(r"(\d+):(\d+) ", l)
+            m = re.match(r"(\d+):(\d+)(?:-\d+)? ", l)
             if m and not shut(b, int(m.group(1))) and (b, int(m.group(1))) not in drafts:
                 books[b].append((int(m.group(1)), int(m.group(2)), l.rstrip("\n")))
     for (b, c), p in drafts.items():
