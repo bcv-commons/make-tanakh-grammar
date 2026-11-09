@@ -1,0 +1,45 @@
+# Copy this folder to import/<licence>/<iso>/<edition-id>/ (CC0, CC-BY, CC-BY-SA, CC-NC, CC-ND or non-free; see
+# import/README.md) and put the text in text/. One edition = one existing translation (a whole Bible, a New
+# Testament, or single books). The keys are make-tanakh's (its import/_template/edition.yaml), so a folder can be
+# copied between the two repositories; the keys under "production" are this repository's own.
+# This file is tracked and public: no text of the edition, no word forms of a protected text, no private details.
+
+name: "Example New Testament"     # human-readable name (for a protected text: an English description, not its title)
+language: xxx                     # BCP 47 / ISO 639 code of the edition's language
+role: style                       # make-tanakh's key; here every edition is a corpus to learn from
+text_dir: text                    # folder (inside this edition) with the text
+format: ""                        # what text/ holds: "one .txt file per chapter (make-tanakh's chapter files)", "USFM", ...
+
+# Textual basis of the edition's New Testament: critical | majority | tr
+nt_basis: critical
+
+books: []                         # codes of the books present, e.g. [mat, mrk, luk] (optional)
+
+# How a clone gets the text, which is never in git (a command, or why it isn't available).
+get_text: ""
+# Where a text was fetched from a Bible source (helloao | openbible | ebible | dbt), with the version it is pinned to.
+# fetch:
+#   source: helloao
+#   id: xxx_abc
+#   version: ""                   # the source's version hash at the fetch (fetch.lock.json has a hash per file)
+
+source: ""        # where the edition comes from (URL, publisher, who handed it over and when)
+licence: ""       # licence or permission; 'private use only' if unclear. It must match the licence folder
+attribution: ""   # CC BY and CC BY-SA editions: the credit line the licence asks for
+credit: ""        # the line shown with quotations from this edition (any licence)
+# published_text: ""              # when text/ is a newer working copy: the published form that quotations must match
+
+# The approval of work derived from a non-free or ND edition, by its rights holder or its translation team.
+# derived_work:
+#   approved_by: ""
+#   date: ""                      # YYYY-MM-DD
+#   form: ""                      # written | verbal (to whom)
+#   for: ""                       # what was approved
+#   returned_to: ""               # who receives the output
+
+production:
+  iso: xxx                        # ISO 639-3 code: the language folder here and under private/lang/
+  script: Latn                    # ISO 15924
+  numbering: english              # the versification of text/: english (the common one) | hebrew
+  aligner_edition: ""             # the edition id used in alignment layers (lexeme-aligner), e.g. xxx_abc
+  testaments: [nt]                # what the edition holds: nt, tanakh (whole or in part; see books)

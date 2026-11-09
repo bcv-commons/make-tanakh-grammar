@@ -1,0 +1,55 @@
+# The Kuni New Testament with Genesis 1-30, Ruth and Jonah (Kuni dialect of Kuni-Boazi, Papua New Guinea): a language
+# the drafting model does not know. Copied from make-tanakh's work copy (import/non-free/kvg/KVG-KuNT): the team's
+# Paratext SFM files in source/, the chapter files built from them in text/, the glossary in glossary.tsv. Nothing of
+# it is in git but this file and README.md.
+name: "Kuni New Testament, with Genesis 1-30, Ruth and Jonah"
+language: kvg
+role: style
+text_dir: text
+format: "one file per chapter (<code>NNN.txt), make-tanakh's chapter format, NFC; glossary.tsv (term, English, explanation)"
+
+# Mt 17:21, 18:11, 23:14, Mk 7:16, Lk 17:36, Jn 5:4, Acts 8:37, Rom 16:24 are absent and 1 Jn 5:7 has no Comma.
+nt_basis: critical
+
+books: [gen, rut, jon, mat, mrk, luk, jhn, act, rom, 1co, 2co, gal, eph, php, col, 1th, 2th, 1ti, 2ti, tit, phm,
+        heb, jas, 1pe, 2pe, 1jn, 2jn, 3jn, jud, rev]
+quarantine: []
+
+get_text: "not available to a clone: the working copy came from the team. The published state (New Testament, Ruth, Jonah) is on eBible as 'kvg'"
+source: >-
+  Kuni/Boazi [kvg], Kuni dialect: Paratext SFM files of the team's working copy (source/, received 2026-10-15 with
+  Genesis 1-30), newer than the published text. The same translation, with Ruth and Jonah, is on eBible as 'kvg'
+  (https://ebible.org/kvg/); its New Testament is an earlier state (785 of 7,934 verses differ).
+licence: >-
+  CC BY-NC-ND 4.0 for the eBible text (https://ebible.org/kvg/copyright.htm, © 2015 Wycliffe Switzerland: credit, no
+  sale, no change to the words); this newer working copy: private use only
+attribution: ""
+credit: "Kuni NT © 2015 Wycliffe Switzerland, CC BY-NC-ND 4.0 (https://ebible.org/kvg/); quoted from the published text"
+
+# The approval of work derived from this edition, as recorded in make-tanakh.
+derived_work:
+  approved_by: the Kuni translation team
+  date: 2026-10-18
+  form: verbal, to the project's maintainer
+  for: all purposes this project needs (checks, back-translations, consistency reports, revision proposals, USFM, models)
+  returned_to: the Kuni translation team
+
+sfm:                                  # the team's conventions, read from source/ in make-tanakh (scripts/sfm_profile.py)
+  detected: "2026-10-21"
+  files: 31
+  encoding: "utf-8"
+  bom: false
+  normalization: "NFD"
+  line_endings: "crlf"
+  versification: "english"
+  heading: "s1"
+  paragraphs: ["p", "m", "b", "q1", "q2", "li1", "li2"]
+  footnotes: "fr fk ft"
+  # the divine name's forms and the id line are in make-tanakh's edition.yaml; left out of this tracked file
+
+production:
+  iso: kvg
+  script: Latn
+  numbering: english
+  aligner_edition: kvg_kunt
+  testaments: [nt, tanakh]

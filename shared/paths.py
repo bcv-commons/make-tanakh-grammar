@@ -20,8 +20,8 @@ A language's config.json:
      "notes": {"dir": "...", "pages": ["verbs", "word-order"]},   # optional: grammar pages shown to the drafter
      "dev": {"grc": {"book": "JHN", "chapters": [1, 2, 3, 4], "leave_out_books": ["JHN"]}}}
 
-Paths in a configuration are relative to the language's folder; a leading $WORK or $PRIVATE names the work copy of make-tanakh or
-the private data folder."""
+Paths in a configuration are relative to the language's folder; a leading $WORK, $PRIVATE or $IMPORT names the work copy of
+make-tanakh, the private data folder or the imported editions (import/README.md)."""
 import json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,6 +42,11 @@ def private(*p):
 
 def work(*p):
     return os.path.join(env("MAKE_TANAKH_WORK"), *p)
+
+
+def imports(*p):
+    """the imported editions, filed by licence (import/README.md)"""
+    return os.path.join(os.environ.get("MAKE_TANAKH_IMPORT") or os.path.join(ROOT, "import"), *p)
 
 
 def aligner_data(*p):
@@ -65,6 +70,8 @@ def resolve(iso, path):
         return work(path[len("$WORK"):].lstrip("/"))
     if path.startswith("$PRIVATE"):
         return private(path[len("$PRIVATE"):].lstrip("/"))
+    if path.startswith("$IMPORT"):
+        return imports(path[len("$IMPORT"):].lstrip("/"))
     return path if os.path.isabs(path) else lang_dir(iso, path)
 
 

@@ -21,12 +21,17 @@
 !/.github/workflows/*.yml
 # the closed list: chapters and books held out of every evidence pool, training and measurement (no text)
 !/shared/closed.json
+# imported editions, filed by licence (import/README.md): an edition's description is tracked, its text never
+!/import/_template/edition.yaml
+!/import/*/*/*/edition.yaml
 
 # never, even where a pattern above admits it
 /private/
 /internal-docs/
 /external/*
 !/external/lexeme-aligner
+# an edition's subfolders (text/, source/) whatever they hold
+/import/*/*/*/*/
 /CLAUDE.local.md
 /env.local.sh
 __pycache__/

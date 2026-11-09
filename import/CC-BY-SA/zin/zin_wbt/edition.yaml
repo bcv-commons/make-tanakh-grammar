@@ -1,0 +1,27 @@
+# The Zinza New Testament (Bantu, Tanzania): a language the drafting model hardly knows, with a New Testament only.
+# Copied from make-tanakh's work copy (import/CC-BY-SA/zin/zin_wbt), where scripts/fetch_edition.py fetched it;
+# fetch.lock.json (local) has a hash per file. The text is not in git.
+name: "Zinza New Testament (Wycliffe Bible Translators, 2024)"
+language: zin
+role: style
+text_dir: text
+format: "one .txt file per chapter (make-tanakh's chapter files, fetched)"
+nt_basis: critical
+quarantine: []
+get_text: "in make-tanakh: python3 scripts/fetch_edition.py zin_wbt; then copy the edition's text/ here"
+fetch:
+  source: helloao
+  id: zin_wbt
+  version: fedda1e948a38fcece50447a4e5cb62d93a26813736db44030d0097abb5eddd8   # fetched 2026-10-21, 260 chapter files
+source: "bible.helloao.org, translation zin_wbt; eBible zin (https://ebible.org/Scriptures/details.php?id=zin)"
+licence: "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)"
+# the edition's own title is on the source page; it is left out of this tracked file
+attribution: "Zinza New Testament, copyright 2024 Wycliffe Bible Translators, Inc., CC BY-SA 4.0"
+credit: "Zinza NT, Wycliffe Bible Translators (CC BY-SA 4.0)"
+
+production:
+  iso: zin
+  script: Latn
+  numbering: english
+  aligner_edition: zin_wbt
+  testaments: [nt]
