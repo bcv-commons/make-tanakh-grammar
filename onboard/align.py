@@ -91,6 +91,33 @@ def export_chapters(src, out, numbering="english"):
     return n
 
 
+def split_step(L, bundle, split, edition, usj, licence, log):
+    """the text divided by the segmenter bundle (onboard/split_export.py, run by the aligner's Python)"""
+    run([os.path.join(L, ".venv", "bin", "python"), "-I", os.path.join(HERE, "split_export.py"), bundle, split, edition, usj,
+         f"segmenter bundle {os.path.relpath(bundle, paths.aligner_data()) if bundle.startswith(paths.aligner_data()) else os.path.basename(os.path.dirname(bundle))}, "
+         f"run by make-tanakh-grammar onboard/split_export.py", licence], log, cwd=L)
+
+
+def view_step(L, usj, view, words, units, log):
+    """the parts view (every divided word written as its parts) and its unit map, kept outside the view"""
+    code = ("from pathlib import Path; import sys; import lexeme_aligner.target_parts as tp\n"
+            "m = tp.write_view(Path(sys.argv[1]), Path(sys.argv[2]), tp.load_parts(sys.argv[3]))\n"
+            "print('view books', len(m), 'verses', sum(len(v) for v in m.values()))")
+    run([os.path.join(L, ".venv", "bin", "python"), "-c", code, usj, view, words], log, cwd=os.path.join(L, "pipeline"))
+    os.replace(os.path.join(view, "_units.json"), units)                 # the aligner reads every .json of the view as a book
+
+
+def jev_env(cfg):
+    """the environment for a Jev pass: the rights row asked first, the key read from the toolkit's work copy (never printed)"""
+    rights.check(cfg, "jev"); env = dict(os.environ); kf = paths.work(".env")
+    if os.path.exists(kf):
+        for line in open(kf, encoding="utf-8"):
+            k, _, v = line.strip().partition("=")
+            if k == "TYPESAFE_API_KEY" and v:
+                env[k] = v.strip("'\"")
+    return env
+
+
 def finished(d):
     """an align-text out folder whose run record says it ended well"""
     p = os.path.join(d, "align-text-run.json")
@@ -138,7 +165,7 @@ def cmd_run(a):
     for k in ("text", "segmenter"):
         if k not in cfg:
             sys.exit(f"{a.lang}: the configuration names no \"{k}\" (module docstring)")
-    L = aligner(); exe = os.path.join(L, ".venv", "bin", "lexeme-aligner"); py = os.path.join(L, ".venv", "bin", "python")
+    L = aligner(); exe = os.path.join(L, ".venv", "bin", "lexeme-aligner")
     ed = cfg["text"]["edition"]; src = paths.resolve(a.lang, cfg["text"]["path"]); bundle = paths.resolve(a.lang, cfg["segmenter"])
     data = paths.aligner_data(); os.makedirs(adir(a.lang), exist_ok=True); log = adir(a.lang, "align.log"); st = state(a.lang, cfg)
     code = cfg.get("code", cfg["iso"])                            # the ISO 639-3 code, where the folder's name is not it
@@ -162,29 +189,17 @@ def cmd_run(a):
         print("words: aligned", flush=True); rec["steps"].append("words")
     usj = adir(a.lang, "out_words", "text-usj")
     if not st["split"]:
-        run([py, "-I", os.path.join(HERE, "split_export.py"), bundle, adir(a.lang, "split"), ed, usj,
-             f"segmenter bundle {os.path.relpath(bundle, paths.aligner_data()) if bundle.startswith(paths.aligner_data()) else os.path.basename(os.path.dirname(bundle))}, "
-             f"run by make-tanakh-grammar onboard/split_export.py", cfg["text"].get("licence", "not stated")], log, cwd=L)
+        split_step(L, bundle, adir(a.lang, "split"), ed, usj, cfg["text"].get("licence", "not stated"), log)
         print("split: written", flush=True); rec["steps"].append("split")
     if not st["view"]:
-        code = ("from pathlib import Path; import sys; import lexeme_aligner.target_parts as tp\n"
-                "m = tp.write_view(Path(sys.argv[1]), Path(sys.argv[2]), tp.load_parts(sys.argv[3]))\n"
-                "print('view books', len(m), 'verses', sum(len(v) for v in m.values()))")
-        run([py, "-c", code, usj, adir(a.lang, "view"), adir(a.lang, "split", "words.parquet")], log, cwd=os.path.join(L, "pipeline"))
-        os.replace(adir(a.lang, "view", "_units.json"), adir(a.lang, "units.json"))      # the aligner reads every .json of the view as a book
+        view_step(L, usj, adir(a.lang, "view"), adir(a.lang, "split", "words.parquet"), adir(a.lang, "units.json"), log)
         print("view: written", flush=True); rec["steps"].append("view")
     want_jev = a.jev and not (st["layer"] and "+jev" in st["layer"])
     if not st["parts"] or want_jev:
         cmd = [exe, "align-text", "--usj", adir(a.lang, "view"), "--edition", ed + "-m", "--out", adir(a.lang, "out_parts"), "--force"] + common
         env = dict(os.environ)
         if a.jev:
-            rights.check(cfg, "jev"); cmd += ["--jev"] + (["--max-usd", str(a.max_usd)] if a.max_usd else [])
-            kf = paths.work(".env")                                   # the key file of the toolkit's work copy; never printed
-            if os.path.exists(kf):
-                for line in open(kf, encoding="utf-8"):
-                    k, _, v = line.strip().partition("=")
-                    if k == "TYPESAFE_API_KEY" and v:
-                        env[k] = v.strip("'\"")
+            env = jev_env(cfg); cmd += ["--jev"] + (["--max-usd", str(a.max_usd)] if a.max_usd else [])
         run(cmd, log, env=env); rec["steps"].append("parts"); print("parts: aligned", flush=True)
         j = json.load(open(adir(a.lang, "out_parts", "align-text-run.json"), encoding="utf-8")).get("jev") or {}
         if a.jev and j:

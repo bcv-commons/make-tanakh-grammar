@@ -18,8 +18,10 @@ repository (--propose then pushes the branch and opens no pull request). Every s
 $MAKE_TANAKH_PRIVATE/publish/log.tsv.
 
 The gates, all of them before anything is sent:
-  rights      the language's rights table says the drafts may be published ("rights": {"publish": true}, with a note on
-              who agreed: a draft made with a team's text among its inputs is published only with the team's consent)
+  rights      the language's rights table says the drafts go out ("rights": {"publish": true}, with a note on who decided).
+              A machine draft carries no copyright of its own and is published CC0; the team's text never goes out, and
+              the verbatim gate keeps its wording out of the drafts. Edits made in the review tool are CC0 by the consent
+              each reviewer gives there before saving.
   hold-out    a closed or held-out chapter is never published
   files       every chapter's files agree with each other (publish/chapter_format.py)
   Hebrew      no file holds Hebrew-script text beyond quotation, nor text of a source that is not free (tools/screen.py)
@@ -35,7 +37,7 @@ from shared import holdout, paths, rights  # noqa: E402
 from publish import chapter_format as CF  # noqa: E402
 
 BOT = ("make-tanakh-review[bot]", "make-tanakh-review@users.noreply.github.com")
-EXTS = (".md", ".units", ".notes", ".support")
+EXTS = (".md", ".units", ".notes", ".align")
 ALT = ".tanakh/alternatives"
 PUBLISHER = ".tanakh/publisher.json"
 
@@ -176,6 +178,21 @@ def plan(repo, bundle, chs):
     return out, have
 
 
+def ci_check(repo, bundle, P):
+    """main as it would be after this run (new chapters added, changed ones replaced), checked by the repository's own
+    format check (.github/check/validate.mjs, with the clause keys of its pinned layout) -> (ok, output lines)"""
+    from publish import repo as R
+    with tempfile.TemporaryDirectory() as tmp:
+        w = os.path.join(tmp, "w"); repo.clone("main", w)
+        if not os.path.exists(os.path.join(w, ".github", "check", "validate.mjs")):
+            return True, ["the repository has no format check (not made from the template): skipped"]
+        for (b, ch), act in P.items():
+            if act != "same":
+                main_f, alt_f = chapter_files(bundle, b, ch); put(bundle, w, main_f + alt_f)
+        subprocess.run(["git", "-C", w, "add", "-A"], check=True)        # the check lists the files git knows
+        return R.validate(w)
+
+
 def log_line(a, action, items, ref):
     d = paths.private("publish"); os.makedirs(d, exist_ok=True)
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
@@ -214,7 +231,12 @@ def main():
     if not screen([os.path.join(bundle, f) for f in files]):
         die("the screen refused a file of the bundle")
     repo = Repo(a.repo or f"{os.environ.get('GLOBAL_TANAKH_ORG', 'global-tanakh')}/{code}")
-    a.repo_spec = repo.spec; P, have = plan(repo, bundle, chs); counts = collections.Counter(P.values()); skipped = [(b, ch) for b, ch, st in chs if st != "ok"]
+    a.repo_spec = repo.spec; P, have = plan(repo, bundle, chs)
+    ok_ci, ci = ci_check(repo, bundle, P)
+    print("the repository's format check on main with this seed: " + ("passed" if ok_ci else "FAILED") + " | " + (ci[-1] if ci else ""))
+    if not ok_ci:
+        print("\n".join(ci[-15:])); die("the language repository's own check would refuse this")
+    counts = collections.Counter(P.values()); skipped = [(b, ch) for b, ch, st in chs if st != "ok"]
     print(f"repository {repo.spec}: add {counts['add']}, propose {counts['propose']}, unchanged {counts['same']}, held out (never published) {len(skipped)}"
           + (" (" + ", ".join(f"{b} {ch}" for b, ch in skipped) + ")" if skipped else ""))
     for (b, ch), act in sorted(P.items()):

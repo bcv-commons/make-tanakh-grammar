@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """The reviewer's bundle of drafted Tanakh chapters: the main draft in the published chapter format, the alternative drafts
-beside it, and the support marks. It is what the publish step puts into a language's text repository.
+beside it. It is what the publish step puts into a language's text repository.
 
-  <book>/<book>_<ccc>.md / .units / .notes        the main draft; units are authored (every draft is written clause by clause)
-  <book>/<book>_<ccc>.support                     per token of the main draft: how many alternatives have it in the same clause
-  .tanakh/alternatives/<kind>/<book>/<book>_<ccc>.md / .units / .notes    the alternatives; never edited, replaced as a whole
+  <book>/<book>_<ccc>.md / .units / .notes / .align   the main draft; units are authored (every draft is written clause by
+                                                      clause); .align = lexeme-aligner's alignment with the team's text (publish/align.py)
+  (no support marks: the review editor computes the alternatives' agreement from these files, decided 2026-11-09)
+  .tanakh/alternatives/<kind>/<book>/<book>_<ccc>.md / .units / .notes / .align   the alternatives; never edited, replaced as a whole
   .tanakh/alternatives/README.md                  one line per kind: what made it, when
 
 A draft is a run of drafting/draft.py or of an alternative (alternatives/nllb.py, alternatives/shape.py) under
@@ -27,7 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared import llm, paths, rights  # noqa: E402
 from source import tokens  # noqa: E402
 from drafting import draft, evidence, prompt  # noqa: E402
-from publish import chapter_format as CF, verbatim as V  # noqa: E402
+from publish import align as AL, chapter_format as CF, verbatim as V  # noqa: E402
 FA = CF.FA
 
 STATUS = [("Maturity", "Machine draft"), ("Translation", ""), ("Exegesis", "Not yet"), ("Literary check", "Not yet"), ("Date", "")]
@@ -141,7 +142,7 @@ def main():
     # 2. the files, chapter by chapter
     written = []
     for ch in chs:
-        keys = CF.layout_keys(a.book, ch); main_pc = main_verses = main_stem = None
+        keys = CF.layout_keys(a.book, ch)
         for k in kinds:
             base = out if k == "main" else os.path.join(out, ".tanakh", "alternatives", k)
             verses, units, nts, per_clause = {}, {}, [], {}
@@ -161,34 +162,21 @@ def main():
             status = [(l, today if l == "Date" else generator(k, man[k]) if l == "Translation" else val) for l, val in STATUS]
             m = {"chapter": ch, "verses": verses, "headings": [], "notes": nts, "title": f"{a.book} {ch}", "status": status}
             stem = CF.write_chapter(m, a.book, base, units, "authored", extra=() if k == "main" else (("alternative", k), ("built", today)))
-            if k == "main":
-                main_pc, main_verses, main_stem = per_clause, verses, stem
             written.append(stem)
-        lines = []                      # .support on the main draft
-        for v in sorted(main_verses):
-            mt = toks(main_verses[v]); dig = ["0"] * len(mt)
-            for (vv, qid), (p0, n) in main_pc.items():
-                if vv != v:
-                    continue
-                sets = [set(toks(final[k].get(qid) or "")) for k in a.alt]
-                for i in range(p0, p0 + n):
-                    dig[i] = str(sum(mt[i] in s for s in sets))
-            lines.append(f"{ch}:{v}\t{''.join(dig)}\n")
-        if a.alt:
-            open(main_stem + ".support", "w", encoding="utf-8").write(
-                f"# support: per token of the standard tokeniser, the number of alternatives ({', '.join(a.alt)}) with the token in the same clause\n"
-                f"# text {CF.text_hash_of(main_verses, ch)}\n" + "".join(lines))
     if a.alt:
         rp = os.path.join(out, ".tanakh", "alternatives", "README.md"); os.makedirs(os.path.dirname(rp), exist_ok=True)
         old = [l for l in open(rp, encoding="utf-8").read().splitlines() if l.startswith("- `")] if os.path.exists(rp) else []
         new = {k: f"- `{k}` ({a.book} {a.chapters}): {generator(k, man[k])}; built {today}" for k in a.alt}
         keep = [l for l in old if not any(l.startswith(f"- `{k}` ({a.book} {a.chapters})") for k in new)]
         open(rp, "w", encoding="utf-8").write("\n".join(["# Alternatives (never edited; replaced as a whole when rebuilt)", ""] + keep + list(new.values())) + "\n")
+    # 3. the word alignment of every draft, by lexeme-aligner with the team's text (publish/align.py)
+    linked = AL.align_bundle(a.lang, out)
     bad = {s: p for s, p in ((s, CF.check_files(s)) for s in written) if p}
     report["actions"] = dict(report["actions"]); report["file problems"] = {os.path.relpath(s, out): p for s, p in bad.items()}
     json.dump(report, open(os.path.join(flags_dir, f"{a.book}_{a.chapters}.json"), "w", encoding="utf-8"), indent=1)
     print(json.dumps({"out": out, "chapters": len(chs), "drafts": kinds, "files checked": len(written), "with problems": len(bad),
-                      "main clauses without text": len(missing), "flags": len(report["flags"]), "actions": report["actions"]}, indent=1))
+                      "main clauses without text": len(missing), "flags": len(report["flags"]), "actions": report["actions"],
+                      "draft words linked to the Hebrew (lexeme-aligner)": {k: round(n / max(1, t), 3) for k, (t, n) in sorted(linked.items())}}, indent=1))
 
 
 if __name__ == "__main__":

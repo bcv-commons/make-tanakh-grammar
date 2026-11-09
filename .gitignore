@@ -9,6 +9,8 @@
 !/LICENSE
 !/LICENSE-docs
 !/.gitignore
+# lexeme-aligner, a core tool, as a git submodule at its pin (shared/pins.py); its .venv stays inside it, untracked
+!/.gitmodules
 !/.githooks/
 !/.githooks/*
 !/tools/screen_allow.txt
@@ -23,7 +25,8 @@
 # never, even where a pattern above admits it
 /private/
 /internal-docs/
-/external/
+/external/*
+!/external/lexeme-aligner
 /CLAUDE.local.md
 /env.local.sh
 __pycache__/

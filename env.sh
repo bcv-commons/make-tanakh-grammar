@@ -10,6 +10,9 @@ export MAKE_TANAKH_WORK="${MAKE_TANAKH_WORK:-$HOME/dev/make-tanakh-work}"
 export MAKE_TANAKH_PUBLISHER="${MAKE_TANAKH_PUBLISHER:-make-tanakh-grammar}"
 export MAKE_TANAKH_PRIVATE="${MAKE_TANAKH_PRIVATE:-$MAKE_TANAKH_GRAMMAR/private}"
 export BCV_COMMONS="${BCV_COMMONS:-$HOME/dev/bcv-commons}"
+# LEXEME_ALIGNER: lexeme-aligner, a core tool, as the submodule external/lexeme-aligner at its pin (shared/pins.py), with its own
+# .venv inside it (python3 tools/setup.py --aligner makes it).
+export LEXEME_ALIGNER="${LEXEME_ALIGNER:-$MAKE_TANAKH_GRAMMAR/external/lexeme-aligner}"
 # DRAFTER_HOLDOUT: chapters held out of every evidence pool and training (shared/closed.json names them and why;
 # shared/holdout.py refuses a setting that opens one).
 export DRAFTER_HOLDOUT="${DRAFTER_HOLDOUT:-LUK:1,2,15;PHP:3;ACT:1;MAT:21}"

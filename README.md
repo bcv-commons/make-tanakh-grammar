@@ -18,8 +18,9 @@ No Bible text is committed here, nor anything built from one.
 | the main draft | `drafting/draft.py build`, `send`, `text` | a chapter drafted verse by verse, clause by clause |
 | the yardstick | `drafting/devcheck.py` | how close a draft is to the team's own text, on chapters the team has translated |
 | alternatives | `alternatives/nllb.py`, `alternatives/shape.py` | a second and a third draft of the same clauses, by other means |
-| the reviewer's bundle | `publish/bundle.py` | main draft, alternatives and support marks in the published chapter format, behind the verbatim gate |
-| publishing | `publish/push.py` | a dry run by default; with `--seed` or `--propose` the bundle goes to the language's text repository |
+| the reviewer's bundle | `publish/bundle.py` | main draft and alternatives in the published chapter format, behind the verbatim gate |
+| the language's text repository | `publish/repo.py` | a dry run by default (template at its pin, filled in, checked, a local stand-in); `--create` makes `global-tanakh/<code>` |
+| publishing | `publish/push.py` | a dry run by default, with the repository's own format check; `--seed` or `--propose` sends the bundle |
 
 Every command prints its usage with `--help`; the module docstrings are the reference.
 
@@ -79,7 +80,11 @@ What these say:
 - **The paid alignment pass helps.** Zinza drafted on the base alignment scores 47.1 against 49.9 with the Jev pass.
 - **A Tanakh chapter drafted from a New Testament only** loses about 3 points against having some of the team's own
   Tanakh text in the pool (one language, one set).
-- **The alternatives are weaker drafts** than the main one. They are there for reviewers and for the support marks.
+- **The alternatives are weaker drafts** than the main one. They are there for reviewers: the review editor shows them under each clause and shades the main draft's words no alternative has.
+
+- **The drafts' alignment links content words only** without the paid Jev pass: lexeme-aligner, run with the team's text,
+  links 93 % (Kuni Genesis) and 96 % (Zinza Ruth) of the Hebrew content words, which is 41 % and 46 % of the main draft's
+  words, as it does for the team's own text. Function words get links in the Jev layer (`publish/align.py --jev`).
 
 Not known yet:
 
@@ -93,12 +98,15 @@ Not known yet:
 
     . ./env.sh                              # MAKE_TANAKH_WORK, MAKE_TANAKH_PRIVATE, BCV_COMMONS, DRAFTER_HOLDOUT
     git config core.hooksPath .githooks     # once per clone: the screening hook
+    python3 tools/setup.py --aligner        # once: lexeme-aligner (submodule external/lexeme-aligner) and its own .venv
     pip install -r requirements.txt         # and requirements-nllb.txt for the NLLB alternative
     python3 tools/setup.py                  # what is there, what is missing
 
-Dependencies are public repositories and datasets at a pin (`shared/pins.py`); nothing of them is copied in:
+Dependencies are public repositories and datasets at a pin (`shared/pins.py`):
 [make-tanakh](https://github.com/bcv-commons/make-tanakh) (the toolkit: source tables, tokeniser, language store),
-lexeme-aligner (alignment, segmenter runtime), the clause layouts, and NLLB-200 for the NLLB alternative.
+[lexeme-aligner](https://github.com/bcv-commons/lexeme-aligner) (a core tool: the alignment of every team's text and of
+every draft, the segmenter runtime; a git submodule at its tag, `git submodule update --init` after cloning), the clause
+layouts, and NLLB-200 for the NLLB alternative.
 `MAKE_TANAKH_PRIVATE` (default `./private`, never tracked) holds the languages' configurations, corpora, models and run
 outputs. A box's own settings go into `env.local.sh` (never tracked), which `env.sh` reads first.
 
@@ -114,7 +122,7 @@ spending cap.
 | `onboard/` | the first stage: the ladder, the alignment chain, the corpus builder, the grammar notes |
 | `drafting/` | evidence from the team's text, the prompt, the runs, the dev check |
 | `alternatives/` | the NLLB alternative with its trainer, the shape draft |
-| `publish/` | the chapter format, the verbatim gate, the reviewer's bundle, the publishing step |
+| `publish/` | the chapter format, the verbatim gate, the drafts' alignment, the reviewer's bundle, the language repository, the publishing step |
 | `tools/` | the screening, the setup check |
 | `tests/` | unit tests (no text, no private data); `parity.py` compares prompts with the research repository where it is present |
 
@@ -130,7 +138,8 @@ spending cap.
 - **The screening.** `.gitignore` is an allowlist, and before each commit `tools/screen.py` refuses a file that holds a
   corpus or binary, Hebrew-script text beyond a few words that is not the WLC, word forms of a protected translation,
   or data of a source that is not free. `python3 tools/screen.py --all` screens the whole tree.
-- **NLLB** is CC BY-NC 4.0. A model fine-tuned on a team's text stays private; whether its drafts may be published
-  under another licence is a question for the publisher, not settled by this code.
+- **Licences of what is published.** Drafts are machine output and are published CC0. Edits made in the review tool are
+  CC0 by the consent each reviewer gives there before saving. NLLB-200's CC BY-NC 4.0 licence covers the model weights,
+  and with them the fine-tuned models, which stay private; it says nothing about the translations a model produces.
 
 Licences: code MIT (`LICENSE`), docs CC0 (`LICENSE-docs`).

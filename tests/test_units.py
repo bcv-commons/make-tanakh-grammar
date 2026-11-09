@@ -111,6 +111,33 @@ class Align(unittest.TestCase):
         self.assertEqual(m[(1, 17)], (2, 1)); self.assertEqual(m[(2, 10)], (2, 11)); self.assertEqual(m[(1, 1)], (1, 1))
 
 
+class Alignment(unittest.TestCase):
+    def test_layer_positions_become_draft_tokens(self):
+        try:
+            from publish import align
+            import full_align as FA
+            FA.index("RUT", "lexemes")
+        except Exception:
+            self.skipTest("the toolkit is not on the path")
+        import json, tempfile
+        refs = list(FA.index("RUT", "lexemes")); i = refs.index("RUT 1:1")
+        with tempfile.TemporaryDirectory() as d:
+            main = [""] * len(refs); main[i] = "0:0 1:1-2 2:3"          # view units 1 and 2 are the parts of token 1
+            json.dump(main, open(os.path.join(d, "RUT_x.json"), "w")); json.dump({}, open(os.path.join(d, "RUT_x.meta.json"), "w"))
+            units = {"RUT": {"1:1": [[0, None], [1, 0], [1, 1], [2, None]]}}
+            got = align.read_layer(d, units, "RUT", 1, {1: "aa bbcc dd"})
+        self.assertEqual(got[1], ("0:0 1:1 2:2", ""))
+
+    def test_kinds_of_a_bundle(self):
+        from publish import align
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            for p in ("RUT/RUT_001.md", ".tanakh/alternatives/nllb/RUT/RUT_001.md", ".tanakh/alternatives/nllb/RUT/RUT_002.md"):
+                os.makedirs(os.path.dirname(os.path.join(d, p)), exist_ok=True); open(os.path.join(d, p), "w").close()
+            k = align.kinds(d)
+        self.assertEqual({x: sorted(v) for x, v in k.items()}, {"main": [("RUT", 1)], "nllb": [("RUT", 1), ("RUT", 2)]})
+
+
 class Publish(unittest.TestCase):
     def test_gate_is_same_verse_and_exact(self):
         from publish import verbatim

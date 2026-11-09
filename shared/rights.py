@@ -6,7 +6,7 @@ every step that sends it somewhere.
                "llm": true,                 # the text may be shown to the drafting model (prompts hold the team's wording)
                "jev": true,                 # the text may be sent to TypeSafe's Jev (the paid alignment pass)
                "aligner_service": false,    # the text may be sent to lexeme-aligner's maintainers (else: aligned locally only)
-               "publish": false,            # drafts made with the team's text among their inputs may be published
+               "publish": false,            # this language's drafts go to its public text repository (CC0)
                "note": "who said so, and when"}
 
 A missing table or a missing row means no. Publishing has further gates of its own (publish/push.py): what is published is
