@@ -11,7 +11,10 @@ A trial is declared before it runs and not changed while it runs:
             kept candidate is the one with the largest gain that passes the guard; stop after --rounds rounds or a round
             that keeps nothing. Every evaluation goes to log.jsonl
   confirm  the kept state against the start on the confirm chapters; each kept patch is tested alone there too, and stays
-            only if it does not lose (result.json says which and why)
+            only if it does not lose; then one at a time out of the set that stays (ablation, dev and confirm chapters): a
+            patch whose removal costs nothing on both is dropped, since alone-tests miss patches that act only on top of
+            others (result.json says which and why)
+  ablate   the ablation alone, on a trial confirmed before it was part of confirm (rewrites result.json)
   show     the trial's figures
 
 The guard (research's, two-sided, on this repository's yardstick): chrF3 on the draft's words against the team's text
@@ -147,19 +150,26 @@ def cmd_plan(a):
     d = tdir(a.lang, a.trial)
     if os.path.exists(os.path.join(d, "plan.json")):
         sys.exit(f"{d}: a trial of that name exists; a trial is not changed once declared")
-    os.makedirs(d); db, dc = spec(a.dev); cb, cc = spec(a.confirm)
+    db, dc = spec(a.dev); cb, cc = spec(a.confirm)
     if db != cb:
         sys.exit("dev and confirm chapters are of one book (the trial leaves that book out of every training)")
     shut = holdout.shut(paths.config(a.lang)); bad = [c for c in dc + cc if shut(db, c)]
     if bad or set(dc) & set(cc):
         sys.exit(f"closed or held-out chapters {bad}, or dev and confirm overlap")
+    used = holdout.trial_chapters(a.lang)               # an earlier trial's confirm chapters are not tuned on again
+    burnt = [c for c in dc + cc if any(r == "confirm" for _, r in used.get((db, c), []))]
+    if burnt and not a.reuse_confirm:
+        sys.exit(f"{db} {burnt}: confirm chapters of an earlier trial ({', '.join(sorted({t for c in burnt for t, r in used[(db, c)] if r == 'confirm'}))});"
+                 " choose others, or --reuse-confirm with a reason in --why")
     have = {c for _, c in K.chapters({db})}; none = [c for c in dc + cc if c not in have]
+
     if none:
         sys.exit(f"{db} {none}: no TBTA propositions (chapters with them: {sorted(have)})")
-    S = start_settings(a.lang, a.start)
+    S = start_settings(a.lang, a.start); os.makedirs(d)
     plan = {"language": a.lang, "trial": a.trial, "declared": time.strftime("%Y-%m-%d %H:%M"), "start": a.start, "settings": S,
             "book": db, "dev": dc, "confirm": cc, "left out of training": sorted({db} | set(x for x in (a.leave_out or "").split(",") if x)),
-            "candidates": CANDIDATES, "guard": GUARD, "rounds": a.rounds, "code": draft.commit()}
+            "candidates": CANDIDATES, "guard": GUARD, "rounds": a.rounds, "code": draft.commit(),
+            "reuses confirm chapters": burnt, "why": a.why}
     json.dump(plan, open(os.path.join(d, "plan.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     print(f"declared {d}/plan.json: {len(CANDIDATES)} candidates, dev {db} {dc}, confirm {db} {cc}, start {a.start}")
 
@@ -200,14 +210,42 @@ def cmd_confirm(a):
     for k in st["kept"]:
         c = compare(base, B.evaluate(patch(S0, k["patch"]), chs))
         res["each"].append({"patch": k["patch"], "confirm": c, "stays": c["chrF3 (words)"][2][0] >= 0})
-    S = copy.deepcopy(S0)
-    for e in res["each"]:
-        if e["stays"]:
-            S = patch(S, e["patch"])
-    res["settings"] = S; res["final on confirm"] = compare(base, B.evaluate(S, chs)) if S != st["settings"] else res["all kept"]
+    ablate(B, plan, res, chs, base)
     json.dump(res, open(os.path.join(d, "result.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     print(json.dumps({"all kept": res["all kept"], "each": [(e["patch"], e["confirm"]["chrF3 (words)"][2], e["stays"]) for e in res["each"]],
+                      "ablation": [(e["patch"], e["confirm"][2], e["dev"][2], e["stays"]) for e in res["ablation"]],
                       "final": res["final on confirm"]}, indent=0))
+
+
+def build(S0, patches):
+    S = copy.deepcopy(S0)
+    for p in patches:
+        S = patch(S, p)
+    return S
+
+
+def ablate(B, plan, res, chs, base):
+    """res gets "ablation" (per patch that stayed alone: the full set against the set without it, on confirm and dev; chrF3 on
+    words), "settings" (the patches that stay in both tests, in the search's order) and "final on confirm" (against base)"""
+    S0 = plan["settings"]; ps = [e["patch"] for e in res["each"] if e["stays"]]; full = build(S0, ps)
+    f_c, f_d = B.evaluate(full, chs), B.evaluate(full, plan["dev"]); res["ablation"] = []
+    for i, p in enumerate(ps):
+        rest = build(S0, ps[:i] + ps[i + 1:])
+        c = compare(B.evaluate(rest, chs), f_c)["chrF3 (words)"]; dv = compare(B.evaluate(rest, plan["dev"]), f_d)["chrF3 (words)"]
+        stays = c[2][0] > 0 or dv[2][0] > 0
+        res["ablation"].append({"patch": p, "confirm": c, "dev": dv, "stays": stays,
+                                "why": "removing it loses" if stays else "removing it costs nothing on dev or confirm"})
+        print(f"  without {json.dumps(p)}: confirm {c[2]} dev {dv[2]} {'stays' if stays else 'DROPPED'}", flush=True)
+    S = build(S0, [e["patch"] for e in res["ablation"] if e["stays"]])
+    res["settings"] = S; res["final on confirm"] = compare(base, B.evaluate(S, chs))
+
+
+def cmd_ablate(a):
+    d = tdir(a.lang, a.trial); plan = json.load(open(os.path.join(d, "plan.json"), encoding="utf-8"))
+    res = json.load(open(os.path.join(d, "result.json"), encoding="utf-8")); B = Bench(a.lang, plan["book"], plan["left out of training"])
+    chs = res["chapters"]; ablate(B, plan, res, chs, B.evaluate(plan["settings"], chs))
+    json.dump(res, open(os.path.join(d, "result.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    print(json.dumps({"final on confirm": res["final on confirm"]["chrF3 (words)"], "dropped": [e["patch"] for e in res["ablation"] if not e["stays"]]}))
 
 
 def cmd_take(a):
@@ -233,11 +271,13 @@ def cmd_show(a):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=("plan", "run", "confirm", "take", "show")); ap.add_argument("--lang", required=True); ap.add_argument("--trial", required=True)
+    ap.add_argument("cmd", choices=("plan", "run", "confirm", "ablate", "take", "show")); ap.add_argument("--lang", required=True); ap.add_argument("--trial", required=True)
     ap.add_argument("--dev", default="JHN:1-4"); ap.add_argument("--confirm", default="JHN:5-8"); ap.add_argument("--leave-out")
     ap.add_argument("--start", choices=("defaults", "research"), default="defaults"); ap.add_argument("--rounds", type=int, default=12)
+    ap.add_argument("--reuse-confirm", action="store_true", help="plan: allow an earlier trial's confirm chapters (recorded)")
+    ap.add_argument("--why", help="plan: the reason, recorded in plan.json")
     a = ap.parse_args()
-    {"plan": cmd_plan, "run": cmd_run, "confirm": cmd_confirm, "take": cmd_take, "show": cmd_show}[a.cmd](a)
+    {"plan": cmd_plan, "run": cmd_run, "confirm": cmd_confirm, "ablate": cmd_ablate, "take": cmd_take, "show": cmd_show}[a.cmd](a)
 
 
 if __name__ == "__main__":

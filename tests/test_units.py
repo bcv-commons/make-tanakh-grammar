@@ -2,7 +2,7 @@
 """Unit tests of the pure parts: no Bible text, no private data, no model call.
 
     python3 -m unittest discover -s tests -p "test_*.py" """
-import os, sys, unittest
+import json, os, sys, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared import holdout  # noqa: E402
@@ -160,6 +160,16 @@ class Tune(unittest.TestCase):
         self.assertEqual(TU.patch(S, {"r2_extra_add": ["V.p2.0", "subj_pnc"]})["r2_extra"], {"V.p2.0": ["subj_pnc"]})
         self.assertFalse(TU.applies(S, {"r3_min_share": 0.5})); self.assertTrue(TU.applies(S, {"r3_min_share": 0.4}))
         self.assertEqual(S["r2_base"]["V"], ["tgroup"])                              # S itself unchanged
+
+    def test_trial_chapters(self):
+        import tempfile
+        from unittest import mock
+        from shared import holdout, paths
+        with tempfile.TemporaryDirectory() as t:
+            d = os.path.join(t, "tuning", "z1"); os.makedirs(d)
+            json.dump({"book": "JHN", "dev": [1, 2], "confirm": [5]}, open(os.path.join(d, "plan.json"), "w"))
+            with mock.patch.object(paths, "lang_dir", lambda iso, *p: os.path.join(t, *p)):
+                self.assertEqual(holdout.trial_chapters("zin"), {("JHN", 1): [("z1", "dev")], ("JHN", 2): [("z1", "dev")], ("JHN", 5): [("z1", "confirm")]})
 
     def test_guard(self):
         from onboard import tune as TU
