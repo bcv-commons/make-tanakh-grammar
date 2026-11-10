@@ -8,7 +8,7 @@ beside it. It is what the publish step puts into a language's text repository.
   .tanakh/alternatives/<kind>/<book>/<book>_<ccc>.md / .units / .notes / .align   the alternatives; never edited, replaced as a whole
   .tanakh/alternatives/README.md                  one line per kind: what made it, when
 
-A draft is a run of drafting/draft.py or of an alternative (alternatives/nllb.py, alternatives/shape.py) under
+A draft is a run of drafting/draft.py or of an alternative (alternatives/nllb.py, shape.py, rules.py) under
 runs/<lang>/draft/<book>/<label>/; --main names the main draft's label, each --alt an alternative's (its label is its kind).
 
 The verbatim gate (publish/verbatim.py) checks every clause of every draft against the team's text of the same verse, where
@@ -36,7 +36,10 @@ MADE_BY = {"main": "LLM draft ({model}): for every clause the team's translation
                      "function-word renderings, similar whole verses{notes}",
              "nllb": "NLLB parts model fine-tuned on the team's text ({model}): consensus of the beam output and {samples} samples, the verse "
                      "cut to clauses by their share of the source words",
-             "shape": "shape draft ({model}): every word a reference into a clause of the team's translation or a lexicon candidate"}
+             "shape": "shape draft ({model}): every word a reference into a clause of the team's translation or a lexicon candidate",
+             "rules": "rule draft ({model}, no model call): TBTA's propositions rendered clause by clause with a lexicon by concept, "
+                      "affix pieces, function parts, order and pronouns counted from the team's linked parts; uncovered words from the "
+                      "team's forms per lexeme"}
 REPHRASE_SYS = ("You revise one clause of a machine draft in {lang}. Keep its meaning exactly and keep it good {lang}, but change the "
                 "wording: other word order, other words or forms of the same meaning that the draft or your knowledge of {lang} supports. "
                 "Do not add or drop content. Answer with JSON only.")

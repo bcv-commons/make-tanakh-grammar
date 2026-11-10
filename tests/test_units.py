@@ -248,5 +248,44 @@ class Nllb(unittest.TestCase):
         self.assertEqual(nllb.cut(q, {"JHN 1:1": ["a", "b", "c", "d", "e", "f", "g", "h"]}, {"JHN 1:1": ["k1", "k2", "k3", "k4"]}), "e f g h")
 
 
+class Rules(unittest.TestCase):
+    def test_table_overrides_and_levels(self):
+        from alternatives import rules_engine as K
+        T = K.learn_dl("R2.V.p1.0", "R2", "x", [({"a": 1, "b": 1}, "ka")] * 5 + [({"a": 1, "b": 2}, "")] * 5, [["a", "b"], ["a"]], 5, 0.5)
+        self.assertEqual(T.lookup({"a": 1, "b": 1})["do"]["value"], "ka"); self.assertEqual(T.lookup({"a": 1, "b": 2})["do"]["value"], "")
+        self.assertIsNone(T.lookup({"a": 2, "b": 1}))
+        T.add({"when": {"a": [1, 2]}, "unless": {"b": 2}, "do": {"value": "mu"}, "source": "llm"})     # an override: tried first
+        self.assertEqual(T.lookup({"a": 2, "b": 1})["do"]["value"], "mu"); self.assertEqual(T.lookup({"a": 1, "b": 2})["do"]["value"], "")
+        self.assertEqual(T.lookup({"a": 2, "b": 1}, skip=frozenset({"a"})), None)
+
+    def test_slots_marks_and_time(self):
+        from alternatives import rules_engine as K
+        self.assertEqual(sorted(["s1.0", "p2.0", "p1.0", "p1.1"], key=K.slot_order), ["p1.1", "p1.0", "p2.0", "s1.0"])
+        self.assertEqual(K.marked(["ba", "gu", "ta", "ni"], [0, 0, 1, 2]), "ba@@ gu ta ni")
+        self.assertEqual(K.words_of([0, 0, 1, 2, 2]), [[0, 1], [2], [3, 4]])
+        self.assertEqual((K.tgroup("Historic Past"), K.tgroup("Present"), K.tgroup(None)), ("past.remote", "present", "na"))
+        self.assertEqual(K.noun_class("abatu"), "ba"); self.assertTrue(K.same_word("walked", "walking"))
+        self.assertEqual(K.gloss_words("[the] man of God"), ["man", "god"]); self.assertEqual(K.norm_strong("G0746"), "746")
+
+    def test_matcher_and_order(self):
+        from alternatives import rules_engine as K, rules as R
+        M = K.Matcher.__new__(K.Matcher); M.smap = {"dog": {"G12"}}; M.pre = "G"; M.assoc = {}
+        cons = [dict(cid="p/0", cat="N", concept="dog", sense=""), dict(cid="p/1", cat="V", concept="run", sense="")]
+        toks = [dict(key="k1", lemma="x", strong="12", gloss="hound", **{"class": "noun"}), dict(key="k2", lemma="y", strong="9", gloss="go", **{"class": "verb"})]
+        self.assertEqual({c: t["key"] for c, t in M.match(cons, toks).items()}, {"p/0": "k1", "p/1": "k2"})     # Strong's, then the only free verb
+        rule = lambda a, b: {"do": {"value": "ba"}} if (a, b) == ("N", "V") else None
+        self.assertEqual([x[0] for x in R.Drafter.order([("N", 1), ("V", 2), ("A", 3)], rule)], ["V", "N", "A"])
+
+    def test_words_and_cut(self):
+        from alternatives import rules as R
+        tags = [["Ba", 0, "p1.0", "c", "k1", "R2"], ["genda", 0, "stem", "c", "k1", "R2"], ["na", 1, "stem", None, None, "R3:x"],
+                ["<dog>", 2, "stem", "d", "k3", "unk"], ["soma", 3, "stem", "e", "k4", "R1"]]
+        ws = R.verse_words(tags)
+        self.assertEqual(ws, [("Bagenda", "k1", "R2"), ("na", None, "R3:x"), ("soma", "k4", "R1")])      # an unknown concept is dropped
+        self.assertEqual(R.cut(ws, [{"k1"}, {"k4"}]), [[("Bagenda", "R2"), ("na", "R3:x")], [("soma", "R1")]])
+        self.assertEqual(R.cut([("na", None, "R9")] + ws, [{"k4"}, {"k1"}]), [[("na", "R9"), ("soma", "R1")], [("Bagenda", "R2"), ("na", "R3:x")]])
+        self.assertEqual(R.norm_form(["ka", [["mu", "p1.0"], "ti"]]), [[["ka", "stem"]], [["mu", "p1.0"], ["ti", "stem"]]])
+
+
 if __name__ == "__main__":
     unittest.main()
