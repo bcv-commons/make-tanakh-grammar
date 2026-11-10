@@ -28,7 +28,18 @@ sys.path.insert(0, os.path.dirname(HERE))
 from shared import paths, pins  # noqa: E402
 
 ORG = os.environ.get("GLOBAL_TANAKH_ORG", "global-tanakh")
-BOT = ("make-tanakh-review[bot]", "make-tanakh-review@users.noreply.github.com")
+def identity():
+    """the commit author of what we publish: the publisher's own GitHub account (its login and noreply address), never another
+    project's App name (until 2026-11-10 the commits said make-tanakh-review[bot], which belongs to no account and impersonated
+    the review tool's App). $MAKE_TANAKH_COMMIT_NAME / _EMAIL override it, e.g. for a machine account"""
+    n, e = os.environ.get("MAKE_TANAKH_COMMIT_NAME"), os.environ.get("MAKE_TANAKH_COMMIT_EMAIL")
+    if n and e:
+        return n, e
+    r = subprocess.run(["gh", "api", "user", "-q", '.login + " " + (.id|tostring)'], capture_output=True, text=True)
+    if r.returncode or not r.stdout.strip():
+        return "make-tanakh-grammar", "make-tanakh-grammar@localhost"           # local trials only; a push needs gh anyway
+    login, uid = r.stdout.split()
+    return login, f"{uid}+{login}@users.noreply.github.com"
 PIN = pins.PINS.get("make-tanakh-review")           # the template's repository and commit
 CHECK = "format"                                   # the job of the template's .github/workflows/validate.yml
 
@@ -106,7 +117,8 @@ def build_init(cfg, code, tdir):
               open(os.path.join(out, ".tanakh", "template.json"), "w", encoding="utf-8"), indent=1)
     sh("git", "init", "-q", "-b", "main", out)
     sh("git", "-C", out, "add", "-A")
-    sh("git", "-C", out, "-c", f"user.name={BOT[0]}", "-c", f"user.email={BOT[1]}", "commit", "-q", "-m",
+    me = identity()
+    sh("git", "-C", out, "-c", f"user.name={me[0]}", "-c", f"user.email={me[1]}", "commit", "-q", "-m",
        f"The {name} text repository, from the make-tanakh-review template ({pin['commit'][:7]})")
     sh("git", "-C", out, "branch", "approved")
     return out

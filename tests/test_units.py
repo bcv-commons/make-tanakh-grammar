@@ -151,6 +151,25 @@ class Intake(unittest.TestCase):
         self.assertEqual((ov[0][0], ov[0][1]["when"], ov[0][1]["source"]), ("R2.V.p2.0", {"subj_pn": "Third.Singular"}, "team:rule:y"))
 
 
+class Tune(unittest.TestCase):
+    def test_patch(self):
+        from onboard import tune as TU
+        S = {"r2_base": {"V": ["tgroup"]}, "r6_fields": ["person"], "r3_min_share": 0.5}
+        self.assertEqual(TU.patch(S, {"r2_base_add": "sperson"})["r2_base"]["V"], ["tgroup", "sperson"])
+        self.assertEqual(TU.patch(S, {"src_trig_add": "sneg"})["src_trig"], ["sneg"])
+        self.assertEqual(TU.patch(S, {"r2_extra_add": ["V.p2.0", "subj_pnc"]})["r2_extra"], {"V.p2.0": ["subj_pnc"]})
+        self.assertFalse(TU.applies(S, {"r3_min_share": 0.5})); self.assertTrue(TU.applies(S, {"r3_min_share": 0.4}))
+        self.assertEqual(S["r2_base"]["V"], ["tgroup"])                              # S itself unchanged
+
+    def test_guard(self):
+        from onboard import tune as TU
+        c = lambda w, p: {"chrF3 (words)": (0, 0, w), "chrF3 (parts)": (0, 0, p)}
+        self.assertTrue(TU.passes(c([0.5, 0.1, 0.9], [0.0, -0.3, 0.3])))
+        self.assertTrue(TU.passes(c([0.3, -0.1, 0.7], [0.1, -0.2, 0.4])))
+        self.assertFalse(TU.passes(c([0.3, -0.3, 0.7], [0.1, -0.2, 0.4])))           # words: lower bound too low
+        self.assertFalse(TU.passes(c([0.5, 0.1, 0.9], [-0.5, -0.9, -0.1])))          # parts fall
+
+
 class Parts(unittest.TestCase):
     def test_pieces_rebuild(self):
         from publish import derived as DV

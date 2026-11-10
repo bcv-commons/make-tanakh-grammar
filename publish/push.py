@@ -38,7 +38,6 @@ sys.path.insert(0, os.path.dirname(HERE))
 from shared import holdout, paths  # noqa: E402
 from publish import chapter_format as CF, derived as DV  # noqa: E402
 
-BOT = ("make-tanakh-review[bot]", "make-tanakh-review@users.noreply.github.com")
 EXTS = (".md", ".units", ".notes", ".align", ".parts")
 ALT = ".tanakh/alternatives"
 RUNS, GLOSSES, FEATS = ".tanakh/runs", ".tanakh/glosses.json", ".tanakh/clause-features.json"
@@ -82,7 +81,9 @@ class Repo:
         if new_branch:
             subprocess.run(["git", "-C", w, "checkout", "-q", "-b", new_branch], check=True)
         subprocess.run(["git", "-C", w, "add", "-A"], check=True)
-        subprocess.run(["git", "-C", w, "-c", f"user.name={BOT[0]}", "-c", f"user.email={BOT[1]}", "commit", "-q", "-m", msg], check=True)
+        from publish import repo as R
+        me = R.identity()
+        subprocess.run(["git", "-C", w, "-c", f"user.name={me[0]}", "-c", f"user.email={me[1]}", "commit", "-q", "-m", msg], check=True)
         subprocess.run(["git", "-C", w, "push", "-q", "origin", new_branch or branch], check=True)
         return subprocess.run(["git", "-C", w, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
 

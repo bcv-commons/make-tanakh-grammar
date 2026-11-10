@@ -355,10 +355,14 @@ class Drafter:
 # ------------------------------------------------------------------ learning and the run
 
 def settings_of(lang):
-    """research's final settings and overrides of the language (private/tbta/research-t2/<lang>/loop_state.json), without
-    the old engine's head stems (r10_b0), which the lexicon replaces"""
+    """the language's settings and research's overrides: settings from private/lang/<iso>/settings.json when a tuning trial
+    was taken there (onboard/tune.py take), else research's final settings (private/tbta/research-t2/<lang>/loop_state.json),
+    without the old engine's head stems (r10_b0), which the lexicon replaces"""
     st = json.load(open(K.tbta("research-t2", lang, "loop_state.json"), encoding="utf-8"))
     S = json.loads(json.dumps(L.DEFAULTS)); S.update(st["settings"]); S.pop("r10_b0", None); S.setdefault("r10_lex", "first")
+    own = paths.lang_dir(lang, "settings.json")                  # a tuning trial's settings, taken (onboard/tune.py take), win
+    if os.path.exists(own) and (json.load(open(own, encoding="utf-8")).get("rules")):
+        S = json.loads(json.dumps(L.DEFAULTS)); S.update(json.load(open(own, encoding="utf-8"))["rules"]); S.setdefault("r10_lex", "first")
     return S, [tuple(x) for x in st.get("overrides", [])]
 
 
