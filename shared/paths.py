@@ -7,6 +7,8 @@
         source/bridges/*.json       the Hebrew-Greek lexeme and grammar bridges
         aligner-data/               clause layouts and other inputs fetched at the aligner's pin
         runs/<iso>/...              prompts, answers, chapters, manifests
+        scratch/                    throwaway work: runs with a label tmp-* (scratch/runs/<iso>/...), rehearsal folders;
+                                    deleted when a check is done, without an rm list (tools/clean_scratch.py for leftovers)
 
 A language's config.json:
 
@@ -57,8 +59,15 @@ def lang_dir(iso, *p):
     return private("lang", iso, *p)
 
 
+SCRATCH_PREFIX = "tmp-"                         # a run label starting so is throwaway: its folder is under scratch/
+
+
+def scratch(*p):
+    return private("scratch", *p)
+
+
 def run_dir(iso, *p, make=True):
-    d = private("runs", iso, *p)
+    d = scratch("runs", iso, *p) if any(str(x).startswith(SCRATCH_PREFIX) for x in p) else private("runs", iso, *p)
     if make:
         os.makedirs(d, exist_ok=True)
     return d
@@ -99,6 +108,7 @@ def config(iso, built=True):
         if built and not os.path.exists(x["_db"]):
             sys.exit(f"{p}: corpus {x['_db']} does not exist (the first stage builds it: onboard/corpus.py)")
     c["_store"] = resolve(iso, c["store"]) if c.get("store") else None
+    c["_register"] = resolve(iso, c["register"]) if c.get("register") else None
     c["_notes_dir"] = resolve(iso, c["notes"]["dir"]) if c.get("notes") else None
     if built:
         _CFG[iso] = c

@@ -25,6 +25,44 @@ class Holdout(unittest.TestCase):
         self.assertTrue(res("MRK", 1)); self.assertTrue(res("GEN", 22)); self.assertFalse(res("GEN", 2))
 
 
+class Scratch(unittest.TestCase):
+    def test_tmp_runs_go_to_the_scratch(self):
+        from shared import paths
+        old = os.environ.get("MAKE_TANAKH_PRIVATE"); os.environ["MAKE_TANAKH_PRIVATE"] = "/p"
+        try:
+            self.assertEqual(paths.run_dir("xx", "draft", "JHN", "tmp-a", "answers", make=False), "/p/scratch/runs/xx/draft/JHN/tmp-a/answers")
+            self.assertEqual(paths.run_dir("xx", "draft", "JHN", "dev", make=False), "/p/runs/xx/draft/JHN/dev")
+        finally:
+            os.environ.pop("MAKE_TANAKH_PRIVATE") if old is None else os.environ.__setitem__("MAKE_TANAKH_PRIVATE", old)
+
+
+class Register(unittest.TestCase):
+    def reg(self):
+        from shared import register as RG
+        a = RG.entry("answer", "T1", "we use abc", "decided", "team", "team:abc", "2026-10-26", text="we use abc for this")
+        t = RG.entry("term", "H1234.team", "abc", "decided", "team", "team:abc", "2026-10-26", source="H1234",
+                     renderings=[{"form": "abc", "status": "preferred"}], origin="store:x/decisions.json#term:H1234.team", **{"from": ["answer:T1"]})
+        m = RG.entry("morph", "ka-:verb", "PST", "proposed", "derived", "script:x", "2026-10-27", form="ka-", slot="prefix", host="verb")
+        return RG, [a, t, m]
+
+    def test_a_seeded_register_passes(self):
+        RG, E = self.reg()
+        self.assertEqual(RG.check(E, params={})[0], [])
+        self.assertEqual(RG.team_terms(E), [("term:H1234.team", "abc")])
+
+    def test_rules(self):
+        RG, E = self.reg()
+        bad = RG.entry("term", "H1234.agent", "abd", "proposed", "model", "agent:x", "2026-11-01", supersedes="term:H1234.team")
+        err = RG.check(E + [bad, dict(E[2])], params={})[0]
+        self.assertTrue(any("only the team may supersede" in x for x in err))
+        self.assertTrue(any("id used twice" in x for x in err))
+        ev = RG.entry("word", "abc", "WORD", "proposed", "derived", "script:x", "2026-11-01", evidence=[{"ref": "RUT 1:1", "form": "abc abd abe abf abg"}])
+        self.assertTrue(RG.check(E + [ev], params={}, protected=True)[0])
+        self.assertFalse(RG.check(E + [ev], params={}, protected=False)[0])
+        with self.assertRaises(ValueError):
+            RG.entry("morph", "x", "y", "proposed", "derived", "script:x", "2026-11-01", colour="red")
+
+
 class Evidence(unittest.TestCase):
     def tok(self, key, cls="noun", lemma="x", ref="GEN 1:1"):
         return dict(key=key, lemma=lemma, strong="1", cls=cls, text=key, cell=None, ref=None, w=None, pos=[], ws=[], sref=ref)

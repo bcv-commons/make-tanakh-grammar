@@ -216,6 +216,15 @@ def similar_verses(E, clauses, k=N_SIMILAR):
 # ------------------------------------------------------------------ the team's decisions and the grammar notes
 
 def team_terms(cfg):
+    """the team's decided terms and names: [(id, value)], from the language's register (shared/register.py) where it has
+    one, else from the store"""
+    if cfg.get("_register") and os.path.exists(os.path.join(cfg["_register"], "VERSION.json")):
+        from shared import register
+        return register.team_terms(register.load(cfg["_register"]))
+    return team_terms_store(cfg)
+
+
+def team_terms_store(cfg):
     """the store's team decisions on terms and names: [(id, value)]"""
     out = []
     if not cfg["_store"]:

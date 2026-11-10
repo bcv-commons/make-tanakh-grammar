@@ -21,6 +21,8 @@
 !/.github/workflows/*.yml
 # the closed list: chapters and books held out of every evidence pool, training and measurement (no text)
 !/shared/closed.json
+# the register's shared questionnaire (questions only, no language's answers): register/README.md
+!/register/parameters.tsv
 # imported editions, filed by licence (import/README.md): an edition's description is tracked, its text never
 !/import/_template/edition.yaml
 !/import/*/*/*/edition.yaml

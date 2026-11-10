@@ -9,6 +9,8 @@ Read `README.md` first.
 - `. ./env.sh` before any run. Code reads other repositories and data only through its settings (`MAKE_TANAKH_WORK`,
   `MAKE_TANAKH_PRIVATE`, `BCV_COMMONS`); never write a path of this box into code.
 - `MAKE_TANAKH_PRIVATE` (default `./private`, never tracked): corpora, run outputs, everything from a protected text.
+- Throwaway work goes in `private/scratch/`: a run label `tmp-*` lands there by itself. It is deleted when a check is done,
+  without an rm list; `python3 tools/clean_scratch.py [--yes]` lists or clears leftovers. Everything else is deleted only by rm list.
 - `.gitignore` is an allowlist; the pre-commit hook (`core.hooksPath .githooks`) runs `tools/screen.py`.
 - `python3 tools/setup.py` checks the box; `python3 -m unittest discover -s tests -p "test_*.py"` runs the unit tests;
   `tests/parity.py` compares prompts with the research repository (legacy mode) where that repository is present.
