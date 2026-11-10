@@ -6,15 +6,13 @@ every step that sends it somewhere.
                "llm": true,                 # the text may be shown to the drafting model (prompts hold the team's wording)
                "jev": true,                 # the text may be sent to TypeSafe's Jev (the paid alignment pass)
                "aligner_service": false,    # the text may be sent to lexeme-aligner's maintainers (else: aligned locally only)
-               "publish": false,            # this language's drafts go to its public text repository (CC0)
                "note": "who said so, and when"}
 
-A missing table or a missing row means no. Publishing has further gates of its own (publish/push.py): what is published is
-the drafts, never the team's text."""
+A missing table or a missing row means no. Publishing is not a row here: it sends the drafts, never the team's text, and the
+drafts are CC0; a language's drafts are held back by its configuration's "publishing" section (publish/push.py)."""
 import sys
 
-WHERE = {"llm": "the drafting model", "jev": "Jev (TypeSafe)", "aligner_service": "lexeme-aligner's service",
-         "publish": "the language's public text repository (the drafts, never the team's text)"}
+WHERE = {"llm": "the drafting model", "jev": "Jev (TypeSafe)", "aligner_service": "lexeme-aligner's service"}
 
 
 def allowed(cfg, to):

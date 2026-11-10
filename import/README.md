@@ -33,8 +33,9 @@ single books) in one folder, `import/<licence>/<language>/<edition>/`. The layou
   (`*.py`); `.gitignore` leaves every subfolder of an edition out. Keep the tracked files free of the text itself, of
   word forms of a protected text, and of private details: the pre-commit screen reads them.
 - **The folder states the licence; it does not decide what may be sent where.** Whether a text may be shown to the
-  drafting model, sent to Jev, or have its drafts published is the user's decision per language, in the rights table
-  of the language's configuration (`shared/rights.py`).
+  drafting model or sent to Jev is the user's decision per language, in the rights table of the language's
+  configuration (`shared/rights.py`). The drafts are CC0 and published unless the configuration holds them back
+  (`"publishing": {"hold": ...}`, `publish/push.py`).
 - **Edition ids are unique** across the folders.
 
 ## Which editions belong here

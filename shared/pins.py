@@ -14,7 +14,7 @@ PINS = {
                              "revision": "514a88320ab6556e0f7fd2e686c9637fcf39bd62"},
     "make-tanakh-review": {"what": "the review tool; its template/ folder is what every language repository starts from",
                            "repo": "https://github.com/bcv-commons/make-tanakh-review", "gh": "bcv-commons/make-tanakh-review",
-                           "commit": "a8f167bd2a7fecc9bcce5a281069bb71d062df21"},
+                           "commit": "5458c319b75dda789c9dca0d40b80e7256ce7ae4"},
     "nllb": {"what": "the base model of the NLLB alternative (CC BY-NC 4.0)", "model": "facebook/nllb-200-distilled-600M"},
 }
 

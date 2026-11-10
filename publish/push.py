@@ -18,7 +18,9 @@ repository (--propose then pushes the branch and opens no pull request). Every s
 $MAKE_TANAKH_PRIVATE/publish/log.tsv.
 
 The gates, all of them before anything is sent:
-  rights      the language's rights table says the drafts go out ("rights": {"publish": true}, with a note on who decided).
+  hold        the language's configuration does not hold its drafts back: "publishing": {"hold": "reason, who, when"}
+              stops every seed and propose (the drafts are CC0 and go out unless held; the team's text never goes out,
+              and the verbatim gate keeps its wording out of the drafts)
               A machine draft carries no copyright of its own and is published CC0; the team's text never goes out, and
               the verbatim gate keeps its wording out of the drafts. Edits made in the review tool are CC0 by the consent
               each reviewer gives there before saving.
@@ -33,7 +35,7 @@ import argparse, collections, datetime, glob, json, os, re, shutil, subprocess, 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from shared import holdout, paths, rights  # noqa: E402
+from shared import holdout, paths  # noqa: E402
 from publish import chapter_format as CF  # noqa: E402
 
 BOT = ("make-tanakh-review[bot]", "make-tanakh-review@users.noreply.github.com")
@@ -89,6 +91,11 @@ class Repo:
         r = subprocess.run(["gh", "pr", "create", "-R", self.spec, "--base", "main", "--head", branch, "--title", title, "--body", body],
                            capture_output=True, text=True, check=True)
         return r.stdout.strip()
+
+
+def held(cfg):
+    """the reason a language's drafts are held back ("publishing": {"hold": "reason, who, when"}), or None"""
+    return ((cfg.get("publishing") or {}).get("hold") or "").strip() or None
 
 
 def publisher_ok(repo):
@@ -189,6 +196,8 @@ def ci_check(repo, bundle, P):
         for (b, ch), act in P.items():
             if act != "same":
                 main_f, alt_f = chapter_files(bundle, b, ch); put(bundle, w, main_f + alt_f)
+        if os.path.exists(os.path.join(bundle, ALT, "README.md")):      # as seed and propose put it
+            put(bundle, w, [f"{ALT}/README.md"])
         subprocess.run(["git", "-C", w, "add", "-A"], check=True)        # the check lists the files git knows
         return R.validate(w)
 
@@ -242,13 +251,13 @@ def main():
     for (b, ch), act in sorted(P.items()):
         if act != "same":
             print(f"  {act:8s} {b} {ch}")
-    may = rights.allowed(cfg, "publish"); ok, msg = publisher_ok(repo)
-    print(("" if may else "NOT ALLOWED: ") + ("the rights table allows publishing the drafts" if may else
-          "the rights table does not allow publishing the drafts (\"rights\": {\"publish\": true}, with a note on who agreed)"))
+    hold = held(cfg); ok, msg = publisher_ok(repo)
+    print(f"NOT ALLOWED: the configuration holds this language's drafts back: {hold}" if hold else "no hold on this language's drafts")
     print(("" if ok else "NOT ALLOWED: ") + msg)
     if a.mode == "check":
         print("check only; nothing sent"); return
-    rights.check(cfg, "publish")
+    if hold:
+        die(f"held back by the configuration (\"publishing\": {{\"hold\": ...}}): {hold}")
     if not ok:
         die(msg)
     readme = f"{ALT}/README.md"

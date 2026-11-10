@@ -149,6 +149,14 @@ class Alignment(unittest.TestCase):
                          ["hbo:776", "hbo:2050b", "grc:26", None])
         self.assertEqual(lexicon.bare("dèmaluéf kø̄", {"\u0304"}), "demaluef kø̄")
 
+    def test_rights_no_unless_yes_and_the_publishing_hold(self):
+        from shared import rights
+        from publish import push
+        self.assertEqual([rights.allowed({}, x) for x in ("llm", "jev", "aligner_service")], [False, False, False])
+        self.assertTrue(rights.allowed({"rights": {"llm": True}}, "llm"))
+        self.assertEqual([push.held({}), push.held({"publishing": {"hold": " "}}), push.held({"publishing": {"hold": "the team asked"}})],
+                         [None, None, "the team asked"])
+
     def test_lexicon_reader_leaves_out_and_bridges(self):
         import sqlite3, tempfile
         from unittest import mock
