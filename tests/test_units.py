@@ -149,6 +149,27 @@ class Alignment(unittest.TestCase):
                          ["hbo:776", "hbo:2050b", "grc:26", None])
         self.assertEqual(lexicon.bare("dèmaluéf kø̄", {"\u0304"}), "demaluef kø̄")
 
+    def test_lexicon_reader_leaves_out_and_bridges(self):
+        import sqlite3, tempfile
+        from unittest import mock
+        from drafting import lexicon
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "lexicon")); db = sqlite3.connect(os.path.join(d, "lexicon", "words.db"))
+            db.executescript("create table lexeme(id, lang, strong, lemma, cls, n); create table form(id, form, plain, bare, tokens, n);"
+                             "create table occ(lexeme, form, ref, src, key, positions, method); create table meta(name, value);"
+                             "insert into meta values ('built', 'x'); insert into lexeme values ('grc:26', 'grc', '26', 'agape', 'noun', 4);"
+                             "insert into lexeme values ('hbo:160b', 'hbo', '160b', 'ahava', 'noun', 1);"
+                             "insert into form values (1, 'Abu', 'abu', 'abu', 1, 3), (2, 'abi ta', 'abi ta', 'abi ta', 2, 1), (3, 'ahu', 'ahu', 'ahu', 1, 1);")
+            db.executemany("insert into occ values (?, ?, ?, '', '', '', '')", [("grc:26", 1, "JHN 3:16"), ("grc:26", 1, "ROM 5:5"),
+                           ("grc:26", 1, "ROM 5:8"), ("grc:26", 2, "1JN 4:8"), ("hbo:160b", 3, "GEN 29:20")]); db.commit(); db.close()
+            with mock.patch.object(lexicon.paths, "lang_dir", lambda iso, *p: os.path.join(d, *p)), \
+                    mock.patch.object(lexicon.bridges, "lexemes", lambda: {"160": [("26", 0.8)]}):
+                L = lexicon.Lexicon({"iso": "xxx"}, skip={("JHN", 3)}, leave_out={"1JN"})
+                self.assertEqual(L.of("grc", "26"), ([("Abu", 1.0, 2)], 2))                # JHN 3 and 1JN not counted
+                self.assertEqual([(lb, tot) for lb, _, tot, _ in L.renderings("hbo", {"strong": "160"})], [(None, 1), ("agape", 2)])   # few direct links: bridged
+                self.assertIsNone(L.expected("grc", {"strong": "26"}))                       # fewer than 3 links
+                self.assertTrue(lexicon.found("abi ta", {"abi", "ta", "x"}) and not lexicon.found("abi ta", {"abi"}))
+
     def test_parts_get_the_words_marks_back(self):
         try:
             from onboard import corpus
@@ -204,6 +225,8 @@ class Shape(unittest.TestCase):
                              {"for": 1, "lex": 1}, {"for": 1, "ref": [9, 9]}], {"id": "q"}, ev, {1: [("soma", {"text": 3})]})
         self.assertEqual([w for w, _ in got], ["ba-genda", "ba-soma", "na", "soma"])       # the verse-initial capital goes; a bad reference yields nothing
         self.assertEqual([t for _, t in got], ["ref:G:1#2", "ref:G:1#2+lex", "ref:G:1#1", "lex"])
+        got = shape.realise([{"for": 1, "word": 2}, {"for": 1, "word": 3}, {"for": 2, "word": 1}], {"id": "q"}, ev, {}, {1: [("na", 0.5, None), ("ba-genda", 0.2, None)]})
+        self.assertEqual(got, [("ba-genda", "word")])                                        # a whole word of the lexicon; a bad number yields nothing
 
 
 class Nllb(unittest.TestCase):

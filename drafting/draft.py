@@ -11,7 +11,8 @@ A run lives in $MAKE_TANAKH_PRIVATE/runs/<lang>/draft/<book>/<label>/ (label: ma
 text/<book><chapter>.json, manifest.json (what it was drafted with: model, code commit, the prompts' hash, the pool, the notes).
 
 Options of build: --source grc|hbo (default: by the book), --leave-out BOOK,... (books kept out of the pool: a dev check leaves
-its dev book out), --no-notes (without the language's grammar pages). Closed and held-out chapters are refused."""
+its dev book out), --no-notes (without the language's grammar pages), --lexicon (with the content words' forms from
+lexicon/words.db). Closed and held-out chapters are refused."""
 import argparse, collections, glob, hashlib, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -86,7 +87,7 @@ def cmd_build(a):
     cfg = paths.config(a.lang); src = a.source or source_of(a.book); chs = chapters_arg(a.chapters)
     leave = tuple(x for x in (a.leave_out or "").split(",") if x)
     E = evidence.build(cfg, src, a.book, chs, leave)
-    B = prompt.Builder(cfg, E, a.book, chs, notes=not a.no_notes)
+    B = prompt.Builder(cfg, E, a.book, chs, notes=not a.no_notes, lexicon=a.lexicon)
     d = job_dir(a, "prompts"); n = chars = 0; h = hashlib.sha256(); groups = {}
     for v, cl in B.groups().items():
         txt, refs = B.verse(cl)
@@ -99,7 +100,8 @@ def cmd_build(a):
     m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": commit(), "source": src, "chapters": chs, "verses": n, "clauses": len(E.order),
                         "characters": chars, "prompts sha256": h.hexdigest(), "evidence": E.meta, "terms": len(B.terms),
                         "team words per source word": B.ratio and round(B.ratio, 3),
-                        "notes": {"pages": cfg["notes"]["pages"], "lines dropped": B.notes_dropped} if B.notes else None})
+                        "notes": {"pages": cfg["notes"]["pages"], "lines dropped": B.notes_dropped} if B.notes else None,
+                        "lexicon": {"words.db built": B.lexi.built} if B.lexi else None})
     save_manifest(a, m)
     print(f"{a.lang} {a.book} {chs}: {n} verses, {len(E.order)} clauses, {chars} characters (about {chars // 3} input tokens) -> {d}")
 
@@ -196,6 +198,7 @@ def main():
     ap.add_argument("cmd", choices=("build", "send", "text", "status")); ap.add_argument("--lang", required=True); ap.add_argument("--book", required=True)
     ap.add_argument("--chapters"); ap.add_argument("--label", default="main"); ap.add_argument("--source", choices=paths.SOURCES)
     ap.add_argument("--leave-out"); ap.add_argument("--no-notes", action="store_true")
+    ap.add_argument("--lexicon", action="store_true", help="build: show the content words' forms from lexicon/words.db")
     ap.add_argument("--cap", type=float, default=0.0, help="api backend: the most this run may spend in all, USD")
     a = ap.parse_args(); a.book = a.book.upper()
     if a.cmd == "build" and not a.chapters:

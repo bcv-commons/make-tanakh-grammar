@@ -8,8 +8,12 @@ has them:
   per verse       the team's 3 most similar whole verses; the team's decided terms and names
   completeness    how much fuller the team's text is than the source, and that the team's unlinked words belong to the translation
   grammar notes   the language's grammar pages (optional), without the lines that cite closed chapters or the chapters drafted
+  content words   (optional, --lexicon) per content word, the team's commonest forms of its lexeme over the whole team text
+                  (drafting/lexicon.py, the chapters drafted and the books left out not counted); a Hebrew word's own forms
+                  first, then those of its usual Greek equivalents in the team's NT
 
-Every text shown comes from the pool (drafting/evidence.py), so nothing of a closed or held-out chapter can reach a prompt."""
+Every text shown comes from the pool (drafting/evidence.py) or the lexicon counted without the job's chapters, so nothing of a
+closed or held-out chapter can reach a prompt."""
 import collections, json, os, re
 
 from shared import holdout, paths
@@ -257,8 +261,14 @@ class Builder:
     """everything the verses of one job share: the evidence, the function-word index, the glosses, the fullness figure, the team's
     terms and the grammar notes. bridged = the language has no text from the job's source language (a Hebrew job for a language
     with an NT only): function words, similar verses and the fullness figure then come from the team's NT, through the bridges"""
-    def __init__(self, cfg, E, book, chapters, notes=True):
+    def __init__(self, cfg, E, book, chapters, notes=True, lexicon=False):
         self.cfg, self.E, self.book, self.chapters = cfg, E, book, set(chapters)
+        self.lexi = None
+        if lexicon:
+            from drafting import lexicon as lx
+            self.lexi = lx.Lexicon(cfg, {(book, c) for c in chapters}, E.left_out)
+            if not self.lexi.ok:
+                raise SystemExit(f"{cfg['iso']}: no lexicon/words.db (onboard/lexicon.py words)")
         self.G = tokens.glosses("grc")
         self.func = FuncIndex(E.pool)
         self.bridged = E.source == "hbo" and not E.verses
@@ -284,6 +294,26 @@ class Builder:
             if f:
                 return (f"{t['lemma']} (as Greek {lem})",) + f
         return None
+
+    def content_lines(self, q):
+        """the content words' forms in the team's text (--lexicon), or nothing"""
+        if not self.lexi:
+            return []
+        out = []
+        for i, t in enumerate(q["tokens"], 1):
+            if t["cls"] not in CONTENT:
+                continue
+            parts = []
+            for label, rows, tot, _ in self.lexi.renderings(self.E.source, t):
+                fs = "; ".join(f"{f} {s:.0%}" for f, s, _ in rows) + f" (n {tot})"
+                parts.append(fs if label is None else f"as Greek {label}: {fs}")
+            if parts:
+                out.append(f"- word {i} {t['lemma']}: " + " | ".join(parts))
+        if out:
+            head = "Content words: the team's commonest forms of each word's lexeme anywhere in its translation (share of n)"
+            out.insert(0, head + ("; for a Hebrew word its own forms first, then those of its usual Greek equivalents in the "
+                                  "team's New Testament:" if self.E.source == "hbo" else ":"))
+        return out
 
     def groups(self):
         """{first verse: [query clauses]} in text order: a clause belongs to the prompt of its first verse"""
@@ -336,6 +366,7 @@ class Builder:
                     L.append(f"- word {i} {lemma}: " + "; ".join(f"{''.join(w) or '(nothing)'} {s:.0%}" for w, s, _ in rend) + f" (n {tot})")
                     if e:
                         L.append(f"  e.g. {e['ref']}: " + " ".join(y for y, _ in e["tokens"]) + " = " + " ".join("".join(w) for w in e["words"]))
+            L += self.content_lines(q)
             L.append("")
         if self.terms:
             L += ["## The team's decided terms and names", ""] + [f"- {i}: {v}" for i, v in self.terms] + [""]

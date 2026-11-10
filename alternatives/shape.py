@@ -9,6 +9,9 @@ the candidate stems: the stems the team's text gives the same lexeme, counted by
   text      the team's text of the same source language (the lemma; for Hebrew the lexeme's number)
   bridged   (a Hebrew word) the team's NT for the Greek lexemes the Hebrew lexeme corresponds to, weighted by their share
   evidence  the evidence clauses shown for the clause
+The stems of the chapters being drafted are never counted (a Hebrew job's pool holds its own chapters for the other clauses).
+With --lexicon, per content word also the team's commonest whole words for its lexeme (drafting/lexicon.py: its own forms, for a
+Hebrew word then those of its usual Greek equivalents), which a slot may take as they are.
 
     . ./env.sh
     python3 alternatives/shape.py build --lang kvg --book EXO --chapters 1      # the prompts (free)
@@ -33,7 +36,8 @@ SYSTEM = ("You plan translations into {lang} for a Bible translation team. You n
           "of the team's own translation that are shown to you. Answer with JSON only.")
 SLOT = {"type": "object", "additionalProperties": False,
         "properties": {"for": {"type": ["integer", "null"]}, "ref": {"type": "array", "items": {"type": "integer"}},
-                       "lex": {"type": "integer"}, "affix": {"type": "array", "items": {"type": "integer"}}, "none": {"type": "string"}}}
+                       "lex": {"type": "integer"}, "affix": {"type": "array", "items": {"type": "integer"}}, "word": {"type": "integer"},
+                       "none": {"type": "string"}}}
 SCHEMA = {"type": "object", "additionalProperties": False, "required": ["clauses"],
           "properties": {"clauses": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["c", "slots"],
                                                                "properties": {"c": {"type": "integer"}, "slots": {"type": "array", "items": SLOT}}}}}}
@@ -49,11 +53,13 @@ Each slot stands for one target word and is one of:
   a function word, or a target word no source word stands for ("for": null), the evidence word is copied whole.
 - {{"for": i, "lex": n, "affix": [e, w]}}: candidate stem n of source word i with the affixes of evidence word [e, w]; without
   "affix" the stem stands alone.
-- {{"none": "reason", "for": i}}: nothing is written for source word i (a word this translation leaves unexpressed).
+- {{"none": "reason", "for": i}}: nothing is written for source word i (a word this translation leaves unexpressed).{word}
 
 i = the source word's number in its clause, e = the evidence clause's number under that clause, w = the target word's number
 inside that evidence clause, n = the candidate's number under its source word. Follow the word order and the clause shapes the
 evidence shows. Never write a target word yourself: every target word must come from a reference."""
+WORD = """
+- {"for": i, "word": n}: whole word n of source word i, as it stands (the team's own word for that lexeme)."""
 
 
 def stem_of(ws):
@@ -70,10 +76,13 @@ def linked_word(c, t):
 
 
 class Lexicon:
-    """stems of the team's text per source lexeme, from the pool: {('grc', lemma) | ('hbo', number) | ('G', Greek number): Counter}"""
-    def __init__(self, pool):
+    """stems of the team's text per source lexeme, from the pool: {('grc', lemma) | ('hbo', number) | ('G', Greek number): Counter};
+    the clauses of the chapters being drafted (`own`) are not counted"""
+    def __init__(self, pool, own=lambda c: False):
         self.by = collections.defaultdict(collections.Counter)
         for c in pool:
+            if own(c):
+                continue
             for t in c["tokens"]:
                 if t["cls"] not in prompt.CONTENT:
                     continue
@@ -110,11 +119,35 @@ def candidates(L, lex, source, q, ev):
     return out
 
 
+def known_words(LX, source, q):
+    """{source word number: [(whole word, share, Greek lemma or None)]} for the content words of a query clause: the lexeme's own
+    commonest forms, then (a Hebrew word) those of its usual Greek equivalents; N_CAND at most"""
+    out = {}
+    for i, t in enumerate(q["tokens"], 1):
+        if t["cls"] not in prompt.CONTENT:
+            continue
+        seen = {}
+        for label, rows, _, _ in LX.renderings(source, t):
+            for f, sh, _ in rows:
+                seen.setdefault(f, (f, sh, label))
+        if seen:
+            out[i] = list(seen.values())[:N_CAND]
+    return out
+
+
 class Shape:
-    def __init__(self, cfg, E):
-        self.cfg, self.E = cfg, E; self.G = tokens.glosses("grc"); self.L = Lexicon(E.pool)
+    def __init__(self, cfg, E, lexicon=False):
+        self.cfg, self.E = cfg, E; self.G = tokens.glosses("grc")
+        book, chs = E.meta["book"], set(E.meta["chapters"])
+        self.L = Lexicon(E.pool, lambda c: c["book"] == book and c["ch"] in chs)
         from source import bridges
         self.lex = bridges.lexemes() if E.source == "hbo" else {}
+        self.LX = None
+        if lexicon:
+            from drafting import lexicon as lx
+            self.LX = lx.Lexicon(cfg, {(book, c) for c in chs}, E.left_out)
+            if not self.LX.ok:
+                raise SystemExit(f"{cfg['iso']}: no lexicon/words.db (onboard/lexicon.py words)")
 
     def groups(self):
         g = collections.OrderedDict()
@@ -124,6 +157,9 @@ class Shape:
 
     def parts(self, q):
         ev = self.E.top(q["id"], N_EV); return ev, candidates(self.L, self.lex, self.E.source, q, ev)
+
+    def words(self, q):
+        return known_words(self.LX, self.E.source, q) if self.LX else {}
 
     def verse(self, clauses):
         E, src, name = self.E, self.E.source, self.cfg["name"]
@@ -146,13 +182,22 @@ class Shape:
                     t = q["tokens"][i - 1]
                     L.append(f"- word {i} {t['text']} ({t['lemma']}): " + "; ".join(
                         f"{n} {s} (" + ", ".join(f"{k_} {v:g}" for k_, v in o.items()) + ")" for n, (s, o) in enumerate(cl, 1)))
+            kw = self.words(q)
+            if kw:
+                L += ["", f"### Whole words for C{k}: the team's commonest words for each lexeme anywhere in its translation (share)" +
+                      ("; 'as Greek X' = the team's New Testament for a Greek equivalent" if src == "hbo" else "")]
+                for i, ws in kw.items():
+                    t = q["tokens"][i - 1]
+                    L.append(f"- word {i} {t['text']} ({t['lemma']}): " + "; ".join(
+                        f"{n} {f} ({sh:.0%}" + (f", as Greek {lb}" if lb else "") + ")" for n, (f, sh, lb) in enumerate(ws, 1)))
             L.append("")
-        L.append(TASK.format(lang=name))
+        L.append(TASK.format(lang=name, word=WORD if self.LX else ""))
         return "\n".join(L), refs
 
 
-def realise(slots, q, ev, cands):
-    """slots -> [(word, trace)]: trace = 'ref:<evidence clause id>#<word>', the same + '+lex', or 'lex'; an unresolvable slot is dropped"""
+def realise(slots, q, ev, cands, words=None):
+    """slots -> [(word, trace)]: trace = 'ref:<evidence clause id>#<word>', the same + '+lex', 'lex', or 'word' (a whole word of
+    the lexicon); an unresolvable slot is dropped"""
     out = []; ew = [prompt.ev_words(c) for c in ev]
 
     def word(r):
@@ -167,6 +212,11 @@ def realise(slots, q, ev, cands):
         return cl[n - 1][0] if cl and isinstance(n, int) and 1 <= n <= len(cl) else None
     for s in slots if isinstance(slots, list) else []:
         if not isinstance(s, dict) or "none" in s:
+            continue
+        if "word" in s:
+            wl = (words or {}).get(s.get("for")) if isinstance(s.get("for"), int) else None
+            if wl and isinstance(s["word"], int) and 1 <= s["word"] <= len(wl):
+                out.append((wl[s["word"] - 1][0], "word"))
             continue
         r = s.get("ref") or s.get("affix"); st = cand(s.get("for"), s.get("lex")) if "lex" in s else None
         got = word(r) if r else None
@@ -186,7 +236,7 @@ def realise(slots, q, ev, cands):
 
 def cmd_build(a):
     cfg = paths.config(a.lang); src = a.source or draft.source_of(a.book); chs = draft.chapters_arg(a.chapters)
-    E = evidence.build(cfg, src, a.book, chs, tuple(x for x in (a.leave_out or "").split(",") if x)); S = Shape(cfg, E)
+    E = evidence.build(cfg, src, a.book, chs, tuple(x for x in (a.leave_out or "").split(",") if x)); S = Shape(cfg, E, a.lexicon)
     d = draft.job_dir(a, "prompts"); n = chars = 0; groups = {}; h = hashlib.sha256()
     for v, cl in S.groups().items():
         txt, refs = S.verse(cl); open(os.path.join(d, draft.vid(v) + ".md"), "w", encoding="utf-8").write(txt)
@@ -194,7 +244,7 @@ def cmd_build(a):
     draft.save_groups(a, groups); m = draft.load_manifest(a)
     m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "kind": "shape", "source": src, "chapters": chs, "verses": n,
                         "clauses": len(E.order), "characters": chars, "prompts sha256": h.hexdigest(), "evidence": E.meta,
-                        "leave out": [x for x in (a.leave_out or "").split(",") if x]})
+                        "leave out": [x for x in (a.leave_out or "").split(",") if x], "lexicon": {"words.db built": S.LX.built} if S.LX else None})
     draft.save_manifest(a, m)
     print(f"{a.lang} {a.book} {chs}: {n} verses, {len(E.order)} clauses, {chars} characters (about {chars // 3} input tokens) -> {d}")
 
@@ -231,7 +281,7 @@ def cmd_words(a):
     if not b:
         sys.exit("no shape build in this run: build first")
     chs = sorted({c for x in m["builds"] if x.get("kind") == "shape" for c in x["chapters"]})
-    E = evidence.build(cfg, b["source"], a.book, chs, tuple(b.get("leave out", ()))); S = Shape(cfg, E)
+    E = evidence.build(cfg, b["source"], a.book, chs, tuple(b.get("leave out", ()))); S = Shape(cfg, E, bool(b.get("lexicon")))
     td = draft.job_dir(a, "templates"); od = draft.job_dir(a, "answers"); trace = {}; st = collections.Counter()
     for i, refs, ids in draft.load_groups(a):
         p = os.path.join(td, i + ".json")
@@ -239,7 +289,7 @@ def cmd_words(a):
             st["verses without a template"] += 1; continue
         by = {x.get("c"): x.get("slots") for x in json.load(open(p, encoding="utf-8")).get("clauses", []) if isinstance(x, dict)}; cl = []
         for k, qid in enumerate(ids, 1):
-            q = E.queries[qid]; ev, cands = S.parts(q); ws = realise(by.get(k), q, ev, cands)
+            q = E.queries[qid]; ev, cands = S.parts(q); ws = realise(by.get(k), q, ev, cands, S.words(q))
             n_slots = sum(1 for s in (by.get(k) or []) if isinstance(s, dict) and "none" not in s)
             st["slots"] += n_slots; st["slots resolved"] += len(ws); st["clauses"] += 1; st["clauses without words"] += not ws
             cl.append({"c": k, "text": " ".join(w for w, _ in ws)}); trace[qid] = [t for _, t in ws]
@@ -252,6 +302,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=("build", "send", "words")); ap.add_argument("--lang", required=True); ap.add_argument("--book", required=True)
     ap.add_argument("--chapters"); ap.add_argument("--label", default="shape"); ap.add_argument("--source", choices=paths.SOURCES); ap.add_argument("--leave-out")
+    ap.add_argument("--lexicon", action="store_true", help="build: offer the content words' whole words from lexicon/words.db")
     a = ap.parse_args(); a.book = a.book.upper()
     if a.cmd == "build" and not a.chapters:
         sys.exit("build needs --chapters")
