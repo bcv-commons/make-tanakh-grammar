@@ -283,7 +283,7 @@ def cmd_words(a):
     chs = sorted({c for x in m["builds"] if x.get("kind") == "shape" for c in x["chapters"]})
     E = evidence.build(cfg, b["source"], a.book, chs, tuple(b.get("leave out", ()))); S = Shape(cfg, E, bool(b.get("lexicon")))
     td = draft.job_dir(a, "templates"); od = draft.job_dir(a, "answers"); trace = {}; st = collections.Counter()
-    for i, refs, ids in draft.load_groups(a):
+    for i, refs, ids, _ in draft.load_groups(a):
         p = os.path.join(td, i + ".json")
         if not os.path.exists(p):
             st["verses without a template"] += 1; continue

@@ -76,6 +76,18 @@ def validate(root, keys_cache=None):
     return r.returncode == 0, (r.stdout + r.stderr).strip().splitlines()
 
 
+def publisher_login():
+    """the GitHub login the drafts are pushed from: $MAKE_TANAKH_PUBLISHER_LOGIN (a machine account, option B), else the login
+    `gh` is signed in with (option A, the default: each user of the template publishes under their own login)"""
+    login = os.environ.get("MAKE_TANAKH_PUBLISHER_LOGIN")
+    if login:
+        return login
+    r = subprocess.run(["gh", "api", "user", "-q", ".login"], capture_output=True, text=True)
+    if r.returncode or not r.stdout.strip():
+        sys.exit("no GitHub login: sign in with `gh auth login`, or set MAKE_TANAKH_PUBLISHER_LOGIN (a machine account)")
+    return r.stdout.strip()
+
+
 def build_init(cfg, code, tdir):
     out = paths.private("publish", code, "init"); shutil.rmtree(out, ignore_errors=True); shutil.copytree(tdir, out)
     name = cfg["name"]
@@ -83,8 +95,13 @@ def build_init(cfg, code, tdir):
         p = os.path.join(out, f); s = open(p, encoding="utf-8").read()
         open(p, "w", encoding="utf-8").write(s.replace("LANG_NAME", name).replace("LANG_CODE", code))
     pin = PIN; today = datetime.date.today().isoformat()
-    json.dump({"publisher": os.environ.get("MAKE_TANAKH_PUBLISHER", "make-tanakh-grammar"), "language": name, "code": code, "named": today},
+    login = publisher_login()                               # the GitHub login our pushes come from: the review CI's derived-files notice
+    json.dump({"publisher": os.environ.get("MAKE_TANAKH_PUBLISHER", "make-tanakh-grammar"), "login": login,
+               "name": "make-tanakh-grammar", "url": "https://github.com/bcv-commons/make-tanakh-grammar",
+               "language": name, "code": code, "named": today},
               open(os.path.join(out, ".tanakh", "publisher.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    json.dump({"code": code, "name": name, "native": cfg.get("native", name), "bcp47": cfg.get("bcp47", cfg["iso"])},   # FORMAT.md section 11
+              open(os.path.join(out, ".tanakh", "language.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     json.dump({"repo": pin["repo"], "commit": pin["commit"], "copied": today},
               open(os.path.join(out, ".tanakh", "template.json"), "w", encoding="utf-8"), indent=1)
     sh("git", "init", "-q", "-b", "main", out)

@@ -270,7 +270,8 @@ class Builder:
     """everything the verses of one job share: the evidence, the function-word index, the glosses, the fullness figure, the team's
     terms and the grammar notes. bridged = the language has no text from the job's source language (a Hebrew job for a language
     with an NT only): function words, similar verses and the fullness figure then come from the team's NT, through the bridges"""
-    def __init__(self, cfg, E, book, chapters, notes=True, lexicon=False):
+    def __init__(self, cfg, E, book, chapters, notes=True, lexicon=False, pieces=False):
+        self.pieces = pieces; self.order = None             # pieces: False | "mark" (say where clauses are cut) | "select" (only find them)
         self.cfg, self.E, self.book, self.chapters = cfg, E, book, set(chapters)
         self.lexi = None
         if lexicon:
@@ -332,6 +333,34 @@ class Builder:
             g.setdefault(sorted(q["refs"], key=ref_key)[0], []).append(q)
         return g
 
+    def cuts(self, clauses):
+        """clauses cut in pieces by other clauses of the verse group (the layout's tree): {k: the prompt's line}; self.order = the
+        pieces in text order [(clause number, piece number)] when there are any, else None"""
+        units = []
+        for k, q in enumerate(clauses, 1):
+            for j, keys in enumerate(q.get("pieces") or [sorted({t["key"][:11] for t in q["tokens"]})]):
+                units.append((keys[0], k, j))
+        units.sort(); out = {}
+        for k, q in enumerate(clauses, 1):
+            ps = q.get("pieces") or []
+            if len(ps) < 2:
+                continue
+            pos = [[i for i, t in enumerate(q["tokens"], 1) if t["key"][:11] in set(p)] for p in ps]
+            at = [n for n, u in enumerate(units) if u[1] == k]
+            between = [sorted({units[n][1] for n in range(at[j] + 1, at[j + 1])}) for j in range(len(at) - 1)]
+            if not any(between):
+                continue
+            seq = []
+            for j, p in enumerate(pos):
+                seq.append(f"words {p[0]}-{p[-1]}" if len(p) > 1 else f"word {p[0]}")
+                if j < len(between):
+                    seq.append(" and ".join(f"C{x}" for x in between[j]) or "(nothing)")
+            out[k] = (f"In the Hebrew this clause is cut in {len(ps)} pieces by another clause: {', then '.join(seq)}. Write its text with "
+                      f"{len(ps) - 1} '|' where the clause between goes in {self.cfg['name']}: inside the clause if that is natural, or a "
+                      "'|' at the start or the end to put it before or after the whole clause.")
+        self.order = [(k, j) for _, k, j in units] if out else None
+        return out
+
     def verse(self, clauses):
         """(prompt text, refs) of one verse group"""
         E, src, name = self.E, self.E.source, self.cfg["name"]; srcname = paths.SOURCE_NAME[src]
@@ -349,8 +378,11 @@ class Builder:
         if self.notes:
             L[2:2] = self.notes + [""]
         L += ["", "## Clauses", ""]
+        cuts = self.cuts(clauses) if self.pieces else {}
         for k, q in enumerate(clauses, 1):
             L.append(f"### Clause C{k}")
+            if k in cuts and self.pieces == "mark":
+                L.append(cuts[k])
             for i, t in enumerate(q["tokens"], 1):
                 L.append(tok_line_word(i, t) if src == "hbo" else tok_line(i, t, self.G))
             ev = E.top(q["id"], N_EVIDENCE)

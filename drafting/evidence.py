@@ -166,6 +166,7 @@ def merge_segments(rows):
         toks = sorted({t["key"]: t for q in qs for t in q["tokens"]}.values(), key=lambda t: t["key"])
         m = dict(qs[0], tokens=toks, refs=sorted({r for q in qs for r in q["refs"]}), lem=set().union(*(q["lem"] for q in qs)),
                  skeys=set().union(*(q["skeys"] for q in qs)), neg=any(q["neg"] for q in qs))
+        m["pieces"] = [sorted({t["key"][:11] for t in q["tokens"]}) for q in sorted(qs, key=lambda q: min(t["key"] for t in q["tokens"]))]
         fq = next((q for q in qs if q["verb"]), None)
         if fq:
             m["verb"], m["pn"] = fq["verb"], fq["pn"]

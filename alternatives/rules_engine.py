@@ -537,7 +537,7 @@ def when_match(rule, ctx):
 class Table:
     """a decision list: `levels` (field lists, most specific first) and `rules` ({kind, sub, when, unless?, do, n, share, source}).
     Learned rules sit at the level their `when` names; rules from elsewhere (an LLM linguist's overrides, a human) carry any
-    `when` / `unless` and are tried first, the most specific first."""
+    `when` / `unless` and are tried first: the team's rules (source team:<id>) before all others, then the most specific."""
     def __init__(self, name, levels, rules=()):
         self.name, self.levels = name, [list(l) for l in levels]
         self.idx = [dict() for _ in self.levels]; self.over = []; self.rules = []
@@ -552,7 +552,7 @@ class Table:
                 if sorted(l) == ks:
                     self.idx[i][tuple(r["when"][f] for f in l)] = r
                     return
-        self.over.append(r); self.over.sort(key=lambda x: -len(x.get("when", {})))
+        self.over.append(r); self.over.sort(key=lambda x: (not str(x.get("source", "")).startswith("team:"), -len(x.get("when", {}))))   # the team's first
 
     def lookup(self, ctx, skip=frozenset()):
         """the rule that applies: overrides first, then the decision list; levels naming a field in `skip` are passed over"""

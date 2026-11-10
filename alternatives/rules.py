@@ -362,6 +362,19 @@ def settings_of(lang):
     return S, [tuple(x) for x in st.get("overrides", [])]
 
 
+def team_overrides(reg):
+    """the team's decided rules in the register (shared/register.py: kind rule, basis team, with table, conditions and do) as engine
+    overrides [(table, rule)]: added when the rules are loaded for a draft, never learned in, so a decision taken in
+    (onboard/intake.py) applies at once; tried before every other rule (rules_engine.Table)"""
+    if not reg or not os.path.exists(os.path.join(reg, "VERSION.json")):
+        return []
+    from shared import register as RG
+    return [(e["table"], {"kind": e["table"].split(".")[0], "when": e["conditions"], "do": e["do"], "why": e.get("said") or e["value"],
+                          "source": f"team:{e['id']}", "n": 0, "share": 0})
+            for e in RG.live(RG.load(reg)) if e["kind"] == "rule" and e["basis"] == "team" and e["status"] == "decided"
+            and e.get("table") and e.get("conditions") is not None and e.get("do")]
+
+
 def rules_name(leave_out):
     return "nt" + "".join(f"-{b}" for b in sorted(leave_out))
 
@@ -387,7 +400,10 @@ def load_rules(a, cfg, leave, chs):
     p = K.tbta("rules", a.lang, rules_name(leave) + ".json")
     if not os.path.exists(p):
         cmd_learn(a, leave)
-    rules = json.load(open(p, encoding="utf-8"))
+    rules = json.load(open(p, encoding="utf-8")); team = team_overrides(getattr(a, "register", None) or cfg.get("_register"))
+    for tname, r in team:
+        rules["tables"].setdefault(tname, {"levels": [], "rules": []})["rules"].append(r)
+    rules["meta"]["team rules"] = len(team)
     bad = sorted({f"{a.book} {c}" for c in chs} & set(rules["meta"]["chapters"]))
     if bad:
         sys.exit(f"{', '.join(bad)} in the rules' training: leave {a.book} out (--leave-out {a.book})")
@@ -470,7 +486,7 @@ def cmd_draft(a):
     m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "kind": "rules", "source": source, "chapters": chs,
                         "verses": len(groups), "clauses": len(E.order), "evidence": E.meta, "leave out": leave,
                         "model": "rules learned from the team's New Testament", "rules": {"file": os.path.basename(rp), "date": rules["meta"]["date"],
-                        "training chapters": len(rules["meta"]["chapters"]), "settings": rules["meta"]["settings"], "overrides": rules["meta"].get("overrides", 0)},
+                        "training chapters": len(rules["meta"]["chapters"]), "settings": rules["meta"]["settings"], "overrides": rules["meta"].get("overrides", 0), "team rules": rules["meta"].get("team rules", 0)},
                         "lexicon": {"words.db built": D.lex.built} if D.lex else None, "figures": dict(st), "log": dict(D.log)})
     draft.save_manifest(a, m)
     json.dump(trace, open(os.path.join(draft.job_dir(a), "trace.json"), "w"), indent=0)
@@ -504,6 +520,7 @@ def main():
     ap.add_argument("cmd", choices=("learn", "draft", "score")); ap.add_argument("--lang", required=True); ap.add_argument("--book")
     ap.add_argument("--chapters"); ap.add_argument("--label", default="rules"); ap.add_argument("--leave-out")
     ap.add_argument("--on", nargs="*", help="score: the rule types in use (default all)"); ap.add_argument("--set", help="settings over the rules' (JSON)")
+    ap.add_argument("--register", help="draft: the team's rules from this register folder (a trial; default the language's)")
     a = ap.parse_args(); a.book = (a.book or "").upper()
     if a.cmd != "learn" and not a.book:
         sys.exit("draft and score need --book")

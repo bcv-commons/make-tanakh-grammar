@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """The register: every fact about a language that its team may decide, in one structure (the review-feedback data plan,
-internal-docs/review-feedback-data-plan-2026-11-10.md, section 3.2). One JSONL file per kind, one entry per line; after the
-freeze the files live in the language repository (`.tanakh/register/`), before it in `private/lang/<iso>/register/`.
+internal-docs/review-feedback-data-plan-2026-11-10.md, section 3.2). After the
+freeze the files live in the language repository (`.tanakh/register/`), before it in `private/lang/<iso>/register/`. One file
+per entry, `<kind>/<slug>-<hex6>.json` (agreed with the review project, 2026-11-10: appends to one file conflict between
+branches); `file_of(id)` gives the name.
 
 Every entry has the same envelope:
 
@@ -20,11 +22,11 @@ Every entry has the same envelope:
     note        free text, or null
 
 and a payload of its kind (KINDS). Decided team entries are binding: no entry of another basis may supersede one."""
-import csv, json, os, re
+import csv, hashlib, json, os, re
 
-KINDS = {   # kind -> (file, payload keys)
+KINDS = {   # kind -> (plural, payload keys)
     "feature": ("features", ("parameter", "confidence", "frequency", "examples")),
-    "rule": ("rules", ("table", "when", "do", "said", "verdict", "pattern")),
+    "rule": ("rules", ("table", "conditions", "do", "said", "verdict", "pattern")),   # conditions: the engine's `when` (the envelope has `when`, the date)
     "choice": ("choices", ("unit", "ref", "rule", "parameter", "source")),
     "term": ("terms", ("source", "renderings", "denials", "replaces", "gloss", "words", "attested")),
     "name": ("names", ("source", "renderings", "denials", "replaces", "gloss", "words", "attested", "letters")),
@@ -60,29 +62,40 @@ def entry(kind, name, value, status, basis, by, when, **kw):
     return e
 
 
+def file_of(eid):
+    """an entry's file, relative to the register: <kind>/<slug>-<first 6 hex of sha256(id)>.json"""
+    kind, name = eid.split(":", 1)
+    slug = re.sub(r"[^a-z0-9.-]", "-", name.lower())[:40].strip("-.") or "x"
+    return f"{kind}/{slug}-{hashlib.sha256(eid.encode('utf-8')).hexdigest()[:6]}.json"
+
+
 def load(d):
-    """all entries of a register folder, in file order"""
+    """all entries of a register folder: kind by kind, by file name"""
     out = []
-    for kind, (f, _) in KINDS.items():
-        p = os.path.join(d, f + ".jsonl")
-        if os.path.exists(p):
-            out += [json.loads(l) for l in open(p, encoding="utf-8") if l.strip()]
+    for kind in KINDS:
+        k = os.path.join(d, kind)
+        if os.path.isdir(k):
+            out += [json.load(open(os.path.join(k, f), encoding="utf-8")) for f in sorted(os.listdir(k)) if f.endswith(".json")]
     return out
 
 
 def write(d, entries, version):
-    """the entries, one file per kind in the order given (new entries go at the end: diffs stay small), and VERSION.json"""
-    os.makedirs(d, exist_ok=True)
-    by = {k: [] for k in KINDS}
+    """every entry to its own file (files of entries no longer given are removed), and VERSION.json"""
+    os.makedirs(d, exist_ok=True); keep = set()
     for e in entries:
-        by[e["kind"]].append(e)
-    for kind, es in by.items():
-        p = os.path.join(d, KINDS[kind][0] + ".jsonl")
+        f = file_of(e["id"]); keep.add(f); p = os.path.join(d, f); os.makedirs(os.path.dirname(p), exist_ok=True)
         with open(p, "w", encoding="utf-8") as fh:
-            for e in es:
-                fh.write(json.dumps(e, ensure_ascii=False) + "\n")
-    json.dump({**version, "entries": len(entries), "by kind": {k: len(v) for k, v in by.items() if v}},
-              open(os.path.join(d, "VERSION.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+            fh.write(json.dumps(e, ensure_ascii=False, indent=1) + "\n")
+    for kind in KINDS:
+        k = os.path.join(d, kind)
+        for f in os.listdir(k) if os.path.isdir(k) else []:
+            if f.endswith(".json") and f"{kind}/{f}" not in keep:
+                os.remove(os.path.join(k, f))
+    by = {}
+    for e in entries:
+        by[e["kind"]] = by.get(e["kind"], 0) + 1
+    json.dump({**version, "entries": len(entries), "by kind": by}, open(os.path.join(d, "VERSION.json"), "w", encoding="utf-8"),
+              indent=1, ensure_ascii=False)
 
 
 def parameters(p=PARAMETERS):
@@ -133,6 +146,9 @@ def check(entries, params=None, protected=False):
         for r in e.get("renderings", []):
             if r.get("status") not in RENDERING_STATUS:
                 err.append(f"{where}: a rendering's status {r.get('status')}")
+        pref = [r.get("form") for r in e.get("renderings", []) if r.get("status") == "preferred"]
+        if pref and e["value"] not in pref:
+            err.append(f"{where}: the value is the preferred rendering ({pref[0]}), not {e['value']}")
     for e in ids.values():
         s = e.get("supersedes")
         if s and s not in ids:
@@ -153,5 +169,19 @@ def check(entries, params=None, protected=False):
 def team_terms(entries):
     """the team's decided terms and names [(id, value)]: terms, then names, each in the register's order. A seeded entry keeps
     the store's id, so the drafter's lines read as before"""
-    return [(e["origin"].split("#", 1)[1] if e.get("origin", "").startswith("store:") else e["id"], e["value"])
+    not_ = lambda e: [r["form"] for r in e.get("renderings", []) if r.get("status") == "deprecated"]
+    return [(e["origin"].split("#", 1)[1] if e.get("origin", "").startswith("store:") else e["id"],
+             e["value"] + (f" (not {', '.join(not_(e))})" if not_(e) else ""))
             for e in entries if e["kind"] in ("term", "name") and e["status"] == "decided" and e["basis"] == "team"]
+
+
+def check_files(d):
+    """errors: a file whose name is not file_of(its id)"""
+    err = []
+    for kind in KINDS:
+        k = os.path.join(d, kind)
+        for f in sorted(os.listdir(k)) if os.path.isdir(k) else []:
+            e = json.load(open(os.path.join(k, f), encoding="utf-8"))
+            if file_of(e.get("id", "x:x")) != f"{kind}/{f}":
+                err.append(f"{kind}/{f}: the name does not match the id {e.get('id')}")
+    return err

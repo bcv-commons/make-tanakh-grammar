@@ -80,20 +80,22 @@ def load_groups(a):
             cj = f[:-3] + ".clauses.json"
             g[os.path.basename(f)[:-3]] = {"refs": open(f, encoding="utf-8").readline().strip("# \n").rsplit(" (", 1)[0].split(" / "),
                                            "clauses": json.load(open(cj)) if os.path.exists(cj) else []}
-    return [(i, x["refs"], x["clauses"]) for i, x in sorted(g.items(), key=lambda kv: prompt.ref_key(kv[1]["refs"][0]))]
+    return [(i, x["refs"], x["clauses"], x.get("order")) for i, x in sorted(g.items(), key=lambda kv: prompt.ref_key(kv[1]["refs"][0]))]
 
 
 def cmd_build(a):
     cfg = paths.config(a.lang); src = a.source or source_of(a.book); chs = chapters_arg(a.chapters)
     leave = tuple(x for x in (a.leave_out or "").split(",") if x)
     E = evidence.build(cfg, src, a.book, chs, leave)
-    B = prompt.Builder(cfg, E, a.book, chs, notes=not a.no_notes, lexicon=a.lexicon)
+    B = prompt.Builder(cfg, E, a.book, chs, notes=not a.no_notes, lexicon=a.lexicon, pieces="mark" if a.pieces else "select" if a.only_pieces else False)
     d = job_dir(a, "prompts"); n = chars = 0; h = hashlib.sha256(); groups = {}
     for v, cl in B.groups().items():
         txt, refs = B.verse(cl)
+        if a.only_pieces and not B.order:
+            continue
         open(os.path.join(d, vid(v) + ".md"), "w", encoding="utf-8").write(txt)
         json.dump([q["id"] for q in cl], open(os.path.join(d, vid(v) + ".clauses.json"), "w"))
-        groups[vid(v)] = {"refs": refs, "clauses": [q["id"] for q in cl]}
+        groups[vid(v)] = {"refs": refs, "clauses": [q["id"] for q in cl], **({"order": B.order} if B.order and a.pieces else {})}
         n += 1; chars += len(txt); h.update(txt.encode("utf-8"))
     save_groups(a, groups)
     m = load_manifest(a)
@@ -101,6 +103,7 @@ def cmd_build(a):
                         "characters": chars, "prompts sha256": h.hexdigest(), "evidence": E.meta, "terms": len(B.terms),
                         "team words per source word": B.ratio and round(B.ratio, 3),
                         "notes": {"pages": cfg["notes"]["pages"], "lines dropped": B.notes_dropped} if B.notes else None,
+                        "pieces": a.pieces or None, "only groups with a cut clause": a.only_pieces or None,
                         "lexicon": {"words.db built": B.lexi.built} if B.lexi else None})
     save_manifest(a, m)
     print(f"{a.lang} {a.book} {chs}: {n} verses, {len(E.order)} clauses, {chars} characters (about {chars // 3} input tokens) -> {d}")
@@ -152,25 +155,37 @@ def cmd_send(a):
 def answers(a):
     """{first ref: {"refs", "text", "clauses"}} of the run's answered verse groups, in text order; a group's text is its clauses joined"""
     od = job_dir(a, "answers"); out = collections.OrderedDict()
-    for i, refs, _ in load_groups(a):
+    for i, refs, _, order in load_groups(a):
         p = os.path.join(od, i + ".json")
         if not os.path.exists(p):
             continue
-        cl = [str(x.get("text", "")) for x in json.load(open(p, encoding="utf-8")).get("clauses", []) if isinstance(x, dict)]
-        out[refs[0]] = {"refs": refs, "text": " ".join(" ".join(c.split()) for c in cl if c.strip()), "clauses": cl}
+        xs = [x for x in json.load(open(p, encoding="utf-8")).get("clauses", []) if isinstance(x, dict)]
+        cl = [str(x.get("text", "")) for x in xs]
+        parts = in_order({x.get("c"): str(x.get("text", "")) for x in xs}, order) if order else [c.replace("|", " ") for c in cl]
+        out[refs[0]] = {"refs": refs, "text": " ".join(" ".join(c.split()) for c in parts if c.strip()), "clauses": cl}
+    return out
+
+
+def in_order(by, order):
+    """the clause texts of a verse group with cut clauses, piece by piece in the Hebrew order: a clause written with one '|' per
+    cut gives its pieces; one written otherwise stands whole at its first piece"""
+    n = collections.Counter(k for k, _ in order); out = []
+    for k, j in order:
+        t = by.get(k, ""); ps = t.split("|")
+        out.append(ps[j] if len(ps) == n[k] else (t.replace("|", " ") if j == 0 else ""))
     return out
 
 
 def clause_texts(a):
     """{clause id: its text} of the run: an answer's clause k is the k-th clause of its verse group"""
     od = job_dir(a, "answers"); out = {}
-    for i, _, ids in load_groups(a):
+    for i, _, ids, _ in load_groups(a):
         p = os.path.join(od, i + ".json")
         if not os.path.exists(p):
             continue
         by = {x.get("c"): str(x.get("text", "")) for x in json.load(open(p, encoding="utf-8")).get("clauses", []) if isinstance(x, dict)}
         for k, qid in enumerate(ids, 1):
-            out[qid] = " ".join(by.get(k, "").split())
+            out[qid] = " ".join(by.get(k, "").replace("|", " ").split())
     return out
 
 
@@ -199,6 +214,8 @@ def main():
     ap.add_argument("--chapters"); ap.add_argument("--label", default="main"); ap.add_argument("--source", choices=paths.SOURCES)
     ap.add_argument("--leave-out"); ap.add_argument("--no-notes", action="store_true")
     ap.add_argument("--lexicon", action="store_true", help="build: show the content words' forms from lexicon/words.db")
+    ap.add_argument("--pieces", action="store_true", help="build: say where another clause cuts a clause, and let the drafter place it")
+    ap.add_argument("--only-pieces", action="store_true", help="build: only the verse groups with a cut clause (a measurement)")
     ap.add_argument("--cap", type=float, default=0.0, help="api backend: the most this run may spend in all, USD")
     a = ap.parse_args(); a.book = a.book.upper()
     if a.cmd == "build" and not a.chapters:

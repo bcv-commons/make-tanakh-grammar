@@ -7,6 +7,7 @@ beside it. It is what the publish step puts into a language's text repository.
   (no support marks: the review editor computes the alternatives' agreement from these files, decided 2026-11-09)
   .tanakh/alternatives/<kind>/<book>/<book>_<ccc>.md / .units / .notes / .align   the alternatives; never edited, replaced as a whole
   .tanakh/alternatives/README.md                  one line per kind: what made it, when
+  .parts beside every draft, .tanakh/runs/, glosses.json, clause-features.json   derived files (publish/derived.py)
 
 A draft is a run of drafting/draft.py or of an alternative (alternatives/nllb.py, shape.py, rules.py) under
 runs/<lang>/draft/<book>/<label>/; --main names the main draft's label, each --alt an alternative's (its label is its kind).
@@ -28,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared import llm, paths, rights  # noqa: E402
 from source import tokens  # noqa: E402
 from drafting import draft, evidence, prompt  # noqa: E402
-from publish import align as AL, chapter_format as CF, verbatim as V  # noqa: E402
+from publish import align as AL, chapter_format as CF, derived as DV, verbatim as V  # noqa: E402
 FA = CF.FA
 
 STATUS = [("Maturity", "Machine draft"), ("Translation", ""), ("Exegesis", "Not yet"), ("Literary check", "Not yet"), ("Date", "")]
@@ -174,7 +175,10 @@ def main():
         open(rp, "w", encoding="utf-8").write("\n".join(["# Alternatives (never edited; replaced as a whole when rebuilt)", ""] + keep + list(new.values())) + "\n")
     # 3. the word alignment of every draft, by lexeme-aligner with the team's text (publish/align.py)
     linked = AL.align_bundle(a.lang, out)
-    bad = {s: p for s, p in ((s, CF.check_files(s)) for s in written) if p}
+    # 4. the derived files: .parts of every draft from the alignment run's split, .tanakh/runs/, .tanakh/glosses.json (publish/derived.py)
+    DV.write_parts(a.lang, out); DV.write_glosses(a.lang, out); DV.write_clause_features(out)
+    DV.write_runs(out, {k: a.main if k == "main" else k for k in kinds}, man, DV.register_revision(a.lang))
+    bad = {s: p for s, p in ((s, CF.check_files(s) + DV.check_parts(s)[0]) for s in written) if p}
     report["actions"] = dict(report["actions"]); report["file problems"] = {os.path.relpath(s, out): p for s, p in bad.items()}
     json.dump(report, open(os.path.join(flags_dir, f"{a.book}_{a.chapters}.json"), "w", encoding="utf-8"), indent=1)
     print(json.dumps({"out": out, "chapters": len(chs), "drafts": kinds, "files checked": len(written), "with problems": len(bad),

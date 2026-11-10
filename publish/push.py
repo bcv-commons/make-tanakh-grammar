@@ -36,11 +36,12 @@ import argparse, collections, datetime, glob, json, os, re, shutil, subprocess, 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from shared import holdout, paths  # noqa: E402
-from publish import chapter_format as CF  # noqa: E402
+from publish import chapter_format as CF, derived as DV  # noqa: E402
 
 BOT = ("make-tanakh-review[bot]", "make-tanakh-review@users.noreply.github.com")
-EXTS = (".md", ".units", ".notes", ".align")
+EXTS = (".md", ".units", ".notes", ".align", ".parts")
 ALT = ".tanakh/alternatives"
+RUNS, GLOSSES, FEATS = ".tanakh/runs", ".tanakh/glosses.json", ".tanakh/clause-features.json"
 PUBLISHER = ".tanakh/publisher.json"
 
 
@@ -121,6 +122,15 @@ def body(text):
     return "\n".join(l for l in text.split("\n") if re.match(r"\d+:\d+\t", l) or l.startswith("## "))
 
 
+def front(md):
+    """(front matter with its fences, the rest) of a chapter's .md"""
+    if md.startswith("---\n"):
+        i = md.find("\n---\n", 4)
+        if i > 0:
+            return md[:i + 5], md[i + 5:]
+    return "", md
+
+
 def merge_units(old_units, new_units, old_md, new_md):
     """a proposal re-cuts only the verses whose text changed; the others keep the people's units"""
     vs = lambda t: {l.split("\t", 1)[0]: l for l in t.split("\n") if re.match(r"\d+:\d+\t", l)}
@@ -145,10 +155,16 @@ def chapters_of(bundle, books, chapters, shut):
 
 
 def chapter_files(bundle, b, ch):
-    """the bundle's files of one chapter, relative: the main draft's, and each alternative's"""
+    """the bundle's files of one chapter, relative: the main draft's (with its run record), and each alternative's"""
     main = [f"{b}/{b}_{ch:03d}{e}" for e in EXTS if os.path.exists(os.path.join(bundle, f"{b}/{b}_{ch:03d}{e}"))]
+    main += [r for r in (f"{RUNS}/{b}_{ch:03d}.json",) if os.path.exists(os.path.join(bundle, r))]
     alt = sorted(os.path.relpath(f, bundle) for f in glob.glob(os.path.join(bundle, ALT, "*", b, f"{b}_{ch:03d}.*")))
     return main, alt
+
+
+def shared_files(bundle):
+    """the bundle's files of the whole repository: the alternatives' README, glosses.json, clause-features.json"""
+    return [r for r in (f"{ALT}/README.md", GLOSSES, FEATS) if os.path.exists(os.path.join(bundle, r))]
 
 
 def screen(files):
@@ -196,8 +212,7 @@ def ci_check(repo, bundle, P):
         for (b, ch), act in P.items():
             if act != "same":
                 main_f, alt_f = chapter_files(bundle, b, ch); put(bundle, w, main_f + alt_f)
-        if os.path.exists(os.path.join(bundle, ALT, "README.md")):      # as seed and propose put it
-            put(bundle, w, [f"{ALT}/README.md"])
+        put(bundle, w, shared_files(bundle))                             # as seed and propose put them
         subprocess.run(["git", "-C", w, "add", "-A"], check=True)        # the check lists the files git knows
         return R.validate(w)
 
@@ -233,8 +248,11 @@ def main():
             continue
         main_f, alt_f = chapter_files(bundle, b, ch); files += main_f + alt_f
         for stem in [os.path.join(bundle, f"{b}/{b}_{ch:03d}")] + sorted({os.path.join(bundle, f[:-len(os.path.splitext(f)[1])]) for f in alt_f}):
-            for p in CF.check_files(stem):
+            parts, notes = DV.check_parts(stem)
+            for p in CF.check_files(stem) + parts:
                 problems += 1; print(f"PROBLEM {os.path.relpath(stem, bundle)}: {p}")
+            for p in notes:
+                print(f"notice {os.path.relpath(stem, bundle)}: {p}")
     if problems:
         die(f"{problems} problems in the bundle's files: make the bundle again")
     if not screen([os.path.join(bundle, f) for f in files]):
@@ -260,7 +278,6 @@ def main():
         die(f"held back by the configuration (\"publishing\": {{\"hold\": ...}}): {hold}")
     if not ok:
         die(msg)
-    readme = f"{ALT}/README.md"
     with tempfile.TemporaryDirectory() as tmp:
         if a.mode == "seed":
             items = [k for k, act in P.items() if act == "add"]
@@ -276,8 +293,7 @@ def main():
                         put(bundle, w, main_f + alt_f)
                 for b, ch in late:                                   # a published chapter that has no alternatives yet
                     put(bundle, w, [f for f in chapter_files(bundle, b, ch)[1] if not os.path.exists(os.path.join(w, f))])
-                if os.path.exists(os.path.join(bundle, readme)):
-                    put(bundle, w, [readme])
+                put(bundle, w, shared_files(bundle))
                 if subprocess.run(["git", "-C", w, "status", "--porcelain"], capture_output=True, text=True).stdout.strip():
                     refs.append(f"{br}@{repo.commit_push(w, br, f'Seed: {len(items)} drafted chapter(s)' + (f', alternatives for {len(late)}' if late else ''))}")
             log_line(a, "seed", items + late, " ".join(refs))
@@ -294,13 +310,14 @@ def main():
                     if rel.endswith(".units") and os.path.exists(dst):
                         open(dst, "w", encoding="utf-8").write(merge_units(open(dst, encoding="utf-8").read(),
                                                                            open(os.path.join(bundle, rel), encoding="utf-8").read(), old_md, new_md))
+                    elif rel == md:                              # the status front matter is the team's: kept (agreed 2026-11-10)
+                        open(dst, "w", encoding="utf-8").write(front(old_md)[0] + front(new_md)[1])
                     else:
                         put(bundle, w, [rel])
                 for old in glob.glob(os.path.join(w, ALT, "*", b, f"{b}_{ch:03d}.*")):      # alternatives: replaced as a whole
                     os.remove(old)
                 put(bundle, w, alt_f)
-            if os.path.exists(os.path.join(bundle, readme)):
-                put(bundle, w, [readme])
+            put(bundle, w, shared_files(bundle))
             br = "draft/" + datetime.date.today().isoformat() + (f"-{a.tag}" if a.tag else "")
             sha = repo.commit_push(w, "main", f"Re-draft: {len(items)} chapter(s)", new_branch=br)
             pr = repo.pull_request(br, f"Re-draft of {len(items)} chapter(s): " + " ".join(f"{b} {ch}" for b, ch in items),

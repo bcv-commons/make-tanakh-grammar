@@ -63,6 +63,112 @@ class Register(unittest.TestCase):
             RG.entry("morph", "x", "y", "proposed", "derived", "script:x", "2026-11-01", colour="red")
 
 
+class RegisterFiles(unittest.TestCase):
+    def test_file_of(self):
+        from shared import register as RG
+        f = RG.file_of("morph:ni-:verb")
+        self.assertRegex(f, r"^morph/ni--verb-[0-9a-f]{6}\.json$")
+        self.assertNotEqual(RG.file_of("term:Ab"), RG.file_of("term:ab"))       # same slug, the hash tells them apart
+        self.assertTrue(RG.file_of("word:" + "x" * 80).startswith("word/" + "x" * 40 + "-"))
+
+    def test_write_load(self):
+        import tempfile
+        from shared import register as RG
+        E = [RG.entry("word", "abc", "abc", "proposed", "derived", "script:t", "2026-11-10", form="abc"),
+             RG.entry("morph", "ni-:verb", "ni-", "decided", "team", "team:t", "2026-11-10", slot="prefix")]
+        with tempfile.TemporaryDirectory() as d:
+            RG.write(d, E, {"revision": "t"}); self.assertEqual(sorted(e["id"] for e in RG.load(d)), sorted(e["id"] for e in E))
+            RG.write(d, E[:1], {"revision": "t2"}); self.assertEqual([e["id"] for e in RG.load(d)], ["word:abc"])
+            self.assertEqual(RG.check_files(d), [])
+
+
+class SegBundle(unittest.TestCase):
+    def test_store_entry(self):
+        from shared import register as RG
+        from onboard import segbundle as SB
+        e = RG.entry("morph", "ni-:verb", "1SG", "proposed", "model", "agent:t", "2026-11-10", slot="prefix", form="ni-", host="verb",
+                     origin="store:x/observations.json#m:ni-:verb")
+        x = SB.store_entry(e)
+        self.assertEqual((x["id"], x["status"], x["slot"], x["form"]), ("m:ni-:verb", "observed", "prefix", "ni-"))
+        self.assertEqual(SB.store_entry(dict(e, origin=None, status="open"))["id"], "m:ni-:verb")
+
+
+class Intake(unittest.TestCase):
+    class Seg:                                   # a splitter that knows ni- and -a around the stem lamul
+        def split(self, w):
+            out = []
+            if w.startswith("ni"):
+                out.append({"slot": "prefix", "text": "ni"}); w = w[2:]
+            if w.startswith("lamul"):
+                out.append({"slot": "stem", "text": "lamul"}); w = w[5:]
+                return out + ([{"slot": "suffix", "text": w}] if w else [])
+            return out + [{"slot": "stem", "text": w}]
+
+    def test_merge(self):
+        from onboard import intake as IN
+        E, st = IN.merge([{"id": "a", "v": 1}, {"id": "b", "v": 1}], [{"id": "b", "v": 2}, {"id": "c", "v": 1}])
+        self.assertEqual({e["id"]: e["v"] for e in E}, {"a": 1, "b": 2, "c": 1})
+        self.assertEqual(st, {"changed in the repository": 1, "new from the repository": 1, "ours only (kept)": 1})
+
+    def test_affix(self):
+        from onboard import intake as IN
+        self.assertEqual(IN.affix_of(self.Seg(), "lamula", "nilamula")[1:3], ([("suffix", "a")], [("prefix", "ni"), ("suffix", "a")]))
+        self.assertEqual(IN.affix_of(self.Seg(), "kaba", "xekaba")[3], "xe-")           # unknown to the splitter: a candidate
+        self.assertIsNone(IN.affix_of(self.Seg(), "kaba", "toto"))
+        rows = [{"cat": "WORD", "old": "kaba", "new": "xekaba", "chapter": "RUT_001", "ref": "1:2"},
+                {"cat": "FUNC", "old": "na", "new": "ne", "chapter": "RUT_001", "ref": "1:2"}]
+        prop = IN.classify(rows, self.Seg(), [])
+        self.assertEqual([r["intake_cat"] for r in rows], ["AFFIX", "FUNC"])
+        self.assertEqual((prop[0]["form"], prop[0]["status"]), ("xe-", "open"))
+
+    def test_edit_rows(self):
+        import tempfile
+        from onboard import intake as IN
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, ".tanakh", "edits", "RUT", "RUT_001"); os.makedirs(p)
+            open(os.path.join(p, "x.jsonl"), "w").write('{"ref": "1:1", "who": "t", "when": "w", "op": "R", "cat": "WORD"}\n'
+                                                       '{"ref": "1:1", "op": "Q", "cat": "WORD"}\nnot json\n')
+            rows, bad = IN.read_edits(d)
+        self.assertEqual((len(rows), len(bad), rows[0]["chapter"]), (1, 2, "RUT_001"))
+
+    def test_splitter_takes_decisions_only(self):
+        from onboard import segbundle as SB
+        self.assertTrue(SB.splits({"origin": "store:x#m:a", "status": "proposed"}))
+        self.assertTrue(SB.splits({"status": "decided"}))
+        self.assertFalse(SB.splits({"status": "open", "by": "script:intake"}))
+
+    def test_term_value_and_team_rules(self):
+        import tempfile
+        from shared import register as RG
+        from alternatives import rules as RU
+        t = RG.entry("term", "x", "Naomi", "decided", "team", "t", "2026-11-10", renderings=[{"form": "Nawomi", "status": "preferred"}])
+        self.assertTrue(any("preferred" in m for m in RG.check([t], params={})[0]))
+        t["value"] = "Nawomi"; t["renderings"].append({"form": "Naomi", "status": "deprecated"})
+        self.assertEqual(RG.team_terms([t]), [("term:x", "Nawomi (not Naomi)")])
+        r = RG.entry("rule", "y", "keep a-", "decided", "team", "t", "2026-11-10", table="R2.V.p2.0", conditions={"subj_pn": "Third.Singular"}, do={"value": "a"})
+        with tempfile.TemporaryDirectory() as d:
+            RG.write(d, [t, r], {"revision": "t"}); ov = RU.team_overrides(d)
+        self.assertEqual((ov[0][0], ov[0][1]["when"], ov[0][1]["source"]), ("R2.V.p2.0", {"subj_pn": "Third.Singular"}, "team:rule:y"))
+
+
+class Parts(unittest.TestCase):
+    def test_pieces_rebuild(self):
+        from publish import derived as DV
+        r = [{"text": "ni", "slot": "prefix", "position": 1, "chain_id": "m:ni:verb", "label": None, "tone": None},
+             {"text": "lim", "slot": "stem", "position": None, "chain_id": None, "label": None, "tone": None},
+             {"text": None, "slot": "tone", "position": None, "chain_id": None, "label": "H", "tone": ["2:\u0301"]}]
+        pcs = [DV.piece(x) for x in r]
+        self.assertEqual(pcs[:2], ["ni:p1:m:ni:verb", "lim:stem"])
+        self.assertEqual(DV.rebuild(pcs), "nilím")
+        self.assertEqual(DV.parse_piece(pcs[0])["morph"], "m:ni:verb")
+        self.assertEqual(DV.verse_hash(1, 2, "abc"), DV.verse_hash(1, 2, "abc")); self.assertNotEqual(DV.verse_hash(1, 2, "abc"), DV.verse_hash(1, 2, "abd"))
+
+    def test_front_matter_kept(self):
+        from publish import push
+        old, new = "---\nstatus: team\n---\n# T\n1:1\told\n", "---\nstatus: machine\n---\n# T\n1:1\tnew\n"
+        self.assertEqual(push.front(old)[0] + push.front(new)[1], "---\nstatus: team\n---\n# T\n1:1\tnew\n")
+
+
 class Evidence(unittest.TestCase):
     def tok(self, key, cls="noun", lemma="x", ref="GEN 1:1"):
         return dict(key=key, lemma=lemma, strong="1", cls=cls, text=key, cell=None, ref=None, w=None, pos=[], ws=[], sref=ref)

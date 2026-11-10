@@ -10,14 +10,13 @@
                   `from` on every entry made from it
                 - register/seed/known.json (research's register values) as features
                 - register/seed/team-questions.md (questions drafted for the team, not sent) as open questions
-                - words.db: terms proposed from the team's forms per lexeme where the store has none
   check       the register's rules, the team's terms as the drafter reads them, every team entry tied to its answer
 
     . ./env.sh; python3 onboard/register.py parameters | seed --lang kvg | check --lang kvg
 
 The register holds forms of the team's text, so before the freeze it is private (`private/lang/<iso>/register/`); after
 it, the language repository's `.tanakh/register/` (internal-docs/review-feedback-data-plan-2026-11-10.md)."""
-import argparse, collections, csv, json, os, re, sqlite3, sys, time
+import argparse, collections, csv, json, os, re, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared import paths, register as RG  # noqa: E402
@@ -25,7 +24,6 @@ from shared import paths, register as RG  # noqa: E402
 TODAY = time.strftime("%Y-%m-%d")
 STRIP = {"term": "term", "name": "name", "formula": "formula", "m": "morph", "w": "word", "letter": "letter",
          "gap": "choice", "claim": "rule", "gb": "feature"}
-TERM_MIN, TERM_TOP, TERM_SHARE = 10, 3, 0.05       # words.db: links a lexeme needs; forms proposed; their least share
 # the generated MT rows (research's lab/onboard/register.py, 2026-11-01): per grammatical category the morphability measures
 # of step C2, per source-side operator how the source analysis exposes it
 CATEGORIES = [("PER", "subject person and number"), ("ARGMK", "object marking"), ("NUM", "noun number"),
@@ -187,31 +185,6 @@ def known(p):
     return out
 
 
-def proposed_terms(cfg, have):
-    """terms proposed from words.db: per source lexeme with TERM_MIN links and no store term, the TERM_TOP forms"""
-    p = paths.lang_dir(cfg["iso"], "lexicon", "words.db")
-    if not os.path.exists(p):
-        return []
-    db = sqlite3.connect(p); built = db.execute("select value from meta where name='built'").fetchone()[0]
-    forms = dict(db.execute("select id, form from form")); lem = dict(db.execute("select id, lemma from lexeme"))
-    by = collections.defaultdict(list)
-    for lx, fm, n, share in db.execute("select lexeme, form, n, share from link"):
-        by[lx].append((n, share, forms[fm]))
-    out = []
-    for lx, rows in sorted(by.items()):
-        lang, s = lx.split(":"); strong = ("H" if lang == "hbo" else "G") + re.sub(r"\D", "", s)
-        tot = sum(n for n, _, _ in rows)
-        if tot < TERM_MIN or strong in have:
-            continue
-        top = [(n, sh, f) for n, sh, f in sorted(rows, reverse=True)[:TERM_TOP] if sh >= TERM_SHARE]
-        if not top:
-            continue
-        out.append(RG.entry("term", f"{lx}.words", top[0][2], "proposed", "derived", "script:onboard/lexicon.py", built[:10],
-                            source=strong, renderings=[{"form": f, "status": "preferred" if i == 0 else "admitted", "n": n} for i, (n, _, f) in enumerate(top)],
-                            gloss=[{"lang": lang, "lemma": lem.get(lx)}], origin=f"words.db#{lx}", note=f"{tot} links in the team's text"))
-    return out
-
-
 def cmd_seed(a):
     cfg = paths.config(a.lang); d = paths.lang_dir(a.lang, "register"); E = []; st = collections.Counter()
     store = cfg["_store"]; wiki = os.path.join(os.path.dirname(store), "wiki") if store else None
@@ -268,11 +241,8 @@ def cmd_seed(a):
         E.append(RG.entry("question", f"q{n}", title, "open", "derived", "agent:research", "2026-11-03", text=text, group=group,
                           origin=f"research:private/profile/{a.lang}/team-questions.md#{n}", note="drafted 2026-11-03, not sent"))
         st["questions"] += 1
-    have = {e.get("source") for e in E if e["kind"] == "term"}
-    pt = proposed_terms(cfg, have); E += [e for e in pt if e["id"] not in have_ids]; st["terms proposed from words.db"] += len(pt)
     RG.write(d, E, {"revision": "0.0-seed", "date": TODAY, "language": a.lang,
-                    "seeded from": {"store": cfg.get("store"), "known": "register/seed/known.json (research)", "questions": "register/seed/team-questions.md (research)",
-                                    "words.db": "lexicon/words.db"}, "left out": {k: v for k, v in st.items() if "left out" in k}})
+                    "seeded from": {"store": cfg.get("store"), "known": "register/seed/known.json (research)", "questions": "register/seed/team-questions.md (research)"}, "left out": {k: v for k, v in st.items() if "left out" in k}})
     print(json.dumps(dict(st), ensure_ascii=False), "->", d)
 
 
@@ -285,7 +255,7 @@ def protected(cfg):
 
 def cmd_check(a):
     cfg = paths.config(a.lang); d = paths.lang_dir(a.lang, "register"); E = RG.load(d)
-    err, warn = RG.check(E, protected=protected(cfg)); out = {"entries": len(E), "errors": len(err), "warnings": len(warn)}
+    err, warn = RG.check(E, protected=protected(cfg)); err += RG.check_files(d); out = {"entries": len(E), "errors": len(err), "warnings": len(warn)}
     from drafting import prompt
     old = prompt.team_terms_store(cfg); new = RG.team_terms(E)
     out["team terms: store / register / same set"] = [len(old), len(new), sorted(old) == sorted(new)]
