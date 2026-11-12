@@ -39,6 +39,10 @@ def main():
     good &= line(have, "make-tanakh", f"{w} ({(g or {}).get('describe', 'no git')}; pin {P['make-tanakh']['tag']})",
                  f"clone {P['make-tanakh']['repo']} at {P['make-tanakh']['tag']}, build its source tables (orig/), set MAKE_TANAKH_WORK")
     good &= line(importlib.util.find_spec("full_align") is not None, "the toolkit's scripts", "on PYTHONPATH (env.sh)", ". ./env.sh")
+    rp = os.path.join(w, "scripts", "register.py"); src = open(rp, encoding="utf-8").read() if os.path.exists(rp) else ""
+    reg_ok = '"spelling": ("spellings", ("match", "replace"' in src and os.path.exists(os.path.join(w, "scripts", "words.py"))
+    good &= line(reg_ok, "the toolkit's register", "scripts/register.py and words.py as of v0.5.0 (spelling: match, replace)",
+                 f"merge make-tanakh {P['make-tanakh']['tag']} into the work copy (shared/register.py and onboard/lexicon.py use them)")
     a = os.environ.get("LEXEME_ALIGNER") or os.path.join(os.environ.get("BCV_COMMONS", ""), "lexeme-aligner"); g = pins.git_commit(a)
     exe = os.path.exists(os.path.join(a, ".venv", "bin", "lexeme-aligner")); at_pin = bool(g) and P["lexeme-aligner"]["commit"].startswith(g["commit"])
     good &= line(exe and at_pin, "lexeme-aligner", f"{a} ({(g or {}).get('describe', 'not found')}; pin {P['lexeme-aligner']['tag']})" +

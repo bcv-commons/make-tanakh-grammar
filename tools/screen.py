@@ -22,7 +22,7 @@ Usage: python3 tools/screen.py [--staged | --all | FILE ...]
     --staged (default; .githooks/pre-commit): the staged content of every added or changed file
     --all: every file git would track (tracked, plus untracked ones .gitignore admits)
     FILE: these files as they are on disk
-The sources are found through MAKE_TANAKH_WORK (. ./env.sh); a missing source is reported and its check made strict
+The sources are found through MAKE_TANAKH_WORK (. ./env.sh), TBTA's download in $MAKE_TANAKH_PRIVATE/tbta/download; a missing source is reported and its check made strict
 (Hebrew: every run of more than HEB_RUN words is refused) or skipped (Kuni, TBTA). Lookup tables are cached, as hashes,
 in $MAKE_TANAKH_PRIVATE/.screen-cache/. Exit status 1 when a file is refused."""
 import csv, glob, hashlib, os, pickle, re, sqlite3, subprocess, sys, unicodedata
@@ -137,7 +137,7 @@ def load_kuni():
 
 def load_tbta():
     """TBTA_N-word runs of TBTA's English verse text (the 'Verse' column of its book tables), as hashes."""
-    files = sorted(glob.glob(os.path.join(WORK, "download/tbta/csv/TBTA_csv/*.csv")))
+    files = sorted(glob.glob(os.path.join(PRIVATE, "tbta/download/csv/TBTA_csv/*.csv")))
     if not files:
         return None
     bsb = sorted(glob.glob(os.path.join(WORK, BSB_GLOB)))

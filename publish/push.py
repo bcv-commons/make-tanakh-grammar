@@ -6,9 +6,13 @@ first the default:
               different), unchanged, skipped. Nothing leaves the box.
   --seed      chapters absent from the repository: added to `main` and `approved`, as the bot. A chapter already there is
               never touched; alternatives of a chapter that has none yet are added with it.
-  --propose   chapters present but different: a branch draft/<date> from main with the new text, pushed, and (GitHub) a
+  --propose   chapters present but different (the main draft, or an alternative's files): a branch draft/<date> from main with the new text, pushed, and (GitHub) a
               pull request into main. People merge it by verse, or close it. Units of verses whose text did not change
               keep the people's cut; the alternatives of a proposed chapter are replaced as a whole.
+  --template  the review template's own files (.github/, FORMAT.md, LICENSE and its .tanakh/ data: TEMPLATE_FILES) as they are at the pin (shared/pins.py),
+              where the repository's differ: a branch template/<commit> from main, pushed, and a pull request; with them
+              .tanakh/template.json names the new commit. Files a team may have changed (README, CODEOWNERS) and every
+              chapter are never touched (README.md, CODEOWNERS, CONTRIBUTING.md, roles.json). --check lists those files too. Needs no bundle.
 
     . ./env.sh
     python3 publish/push.py --lang xxx [--bundle DIR] [--repo org/lang | /path/to/bare.git] [--check | --seed | --propose]
@@ -198,7 +202,11 @@ def plan(repo, bundle, chs):
             out[(b, ch)] = "add"
         else:
             old = repo.read("main", rel); new = open(os.path.join(bundle, rel), encoding="utf-8").read()
-            out[(b, ch)] = "same" if old is not None and body(old) == body(new) else "propose"
+            same = old is not None and body(old) == body(new)
+            if same:                                   # the main draft as it was: an alternative redrafted is proposed too
+                same = all(repo.read("main", rel) == open(os.path.join(bundle, rel), encoding="utf-8").read()
+                           for rel in chapter_files(bundle, b, ch)[1] if not rel.endswith(".json"))
+            out[(b, ch)] = "same" if same else "propose"
     return out, have
 
 
@@ -218,6 +226,45 @@ def ci_check(repo, bundle, P):
         return R.validate(w)
 
 
+TEMPLATE_FILES = lambda rel: (rel.startswith((".github/", ".tanakh/poetry/", ".tanakh/migrations/"))     # the review tool's, never a team's
+                              or rel in ("FORMAT.md", "LICENSE", ".tanakh/README.md", ".tanakh/layout.json"))
+
+
+def template_diff(repo):
+    """(template folder, [published paths whose content differs from the pinned template's or that are missing])"""
+    from publish import repo as R
+    tdir = R.template(); out = []
+    for d, _, fs in os.walk(tdir):
+        for f in fs:
+            rel = os.path.relpath(os.path.join(d, f), tdir)
+            if TEMPLATE_FILES(rel) and repo.read("main", rel) != open(os.path.join(tdir, rel), encoding="utf-8").read():
+                out.append(rel)
+    return tdir, sorted(out)
+
+
+def template_sync(a, repo):
+    from publish import repo as R
+    tdir, diff = template_diff(repo); pin = R.PIN
+    print(f"template {pin['gh']}@{pin['commit'][:12]}: {len(diff)} file(s) differ on {repo.spec} main" + ("".join(f"\n  {f}" for f in diff)))
+    if not diff or a.mode != "template":
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        w = os.path.join(tmp, "main"); repo.clone("main", w); br = f"template/{pin['commit'][:7]}"
+        for rel in diff:
+            os.makedirs(os.path.dirname(os.path.join(w, rel)) or w, exist_ok=True); shutil.copy(os.path.join(tdir, rel), os.path.join(w, rel))
+        tj = os.path.join(w, ".tanakh", "template.json"); t = json.load(open(tj, encoding="utf-8")) if os.path.exists(tj) else {}
+        t.update({"repo": pin["repo"], "commit": pin["commit"], "copied": datetime.date.today().isoformat()})
+        json.dump(t, open(tj, "w", encoding="utf-8"), indent=1)
+        ok, lines = R.validate(w)
+        if not ok:
+            print("\n".join(lines[-15:])); die("the new template's check refuses the repository: nothing sent")
+        ref = repo.commit_push(w, "main", f"The review template at {pin['commit'][:7]}: " + ", ".join(diff), new_branch=br)
+        pr = repo.pull_request(br, f"Review template {pin['commit'][:7]}", "The review tool's own files as they are at "
+                               f"{pin['repo']}/commit/{pin['commit']}:\n\n" + "\n".join(f"- `{f}`" for f in diff) +
+                               "\n\nNo chapter and no file a team edits is touched.")
+        print(f"pushed {br}@{ref}; {pr}"); log_line(a, "template", [], f"{br}@{ref}")
+
+
 def log_line(a, action, items, ref):
     d = paths.private("publish"); os.makedirs(d, exist_ok=True)
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
@@ -235,10 +282,13 @@ def main():
     ap.add_argument("--lang", required=True); ap.add_argument("--bundle"); ap.add_argument("--repo")
     ap.add_argument("--book", nargs="*"); ap.add_argument("--chapters", type=int, nargs="*"); ap.add_argument("--tag")
     g = ap.add_mutually_exclusive_group()
-    for m in ("check", "seed", "propose"):
+    for m in ("check", "seed", "propose", "template"):
         g.add_argument("--" + m, dest="mode", action="store_const", const=m)
     ap.set_defaults(mode="check"); a = ap.parse_args()
     cfg = paths.config(a.lang); code = cfg.get("code", cfg["iso"])
+    if a.mode == "template":
+        a.bundle = ""; r = Repo(a.repo or f"{os.environ.get('GLOBAL_TANAKH_ORG', 'global-tanakh')}/{code}"); a.repo_spec = r.spec
+        return template_sync(a, r)
     a.bundle = bundle = os.path.realpath(a.bundle or paths.private("publish", a.lang, "bundle"))
     chs = chapters_of(bundle, [b.upper() for b in a.book or []], a.chapters, holdout.shut(cfg))
     if not chs:
@@ -274,7 +324,7 @@ def main():
     print(f"NOT ALLOWED: the configuration holds this language's drafts back: {hold}" if hold else "no hold on this language's drafts")
     print(("" if ok else "NOT ALLOWED: ") + msg)
     if a.mode == "check":
-        print("check only; nothing sent"); return
+        template_sync(a, repo); print("check only; nothing sent"); return
     if hold:
         die(f"held back by the configuration (\"publishing\": {{\"hold\": ...}}): {hold}")
     if not ok:

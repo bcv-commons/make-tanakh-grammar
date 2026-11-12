@@ -12,7 +12,7 @@ the review project 2026-11-10: derived files carry no `# text` hash, a stale row
                                 8 hex of sha256("c:v<TAB>text"). The split is the language's splitter on the drafts, taken
                                 from the bundle's alignment run (publish/align.py, step split).
   .tanakh/runs/<BOOK>_<CCC>.json   per kind of draft: the run that made it (label, model, prompts' sha256, code commit,
-                                the register's revision, built), so an edit is tied to the draft it corrected; "main" names the main draft's kind (always
+                                the register's revision and sha256 at draft time, built), so an edit is tied to the draft it corrected; "main" names the main draft's kind (always
                                 "main"; the other kinds are the alternatives)
   .tanakh/clause-features.json  a pointer, not values (the user, 2026-11-10: the columns are CC BY-SA, the repository CC0): the
                                 published dataset bcv-commons/clause-columns at its pinned revision, keyed by the clause keys
@@ -148,19 +148,26 @@ def check_parts(stem):
     return problems, notices
 
 
-def write_runs(bundle, labels, manifests, register_rev):
-    """.tanakh/runs/<BOOK>_<CCC>.json per chapter"""
+def write_runs(bundle, labels, manifests, register_now):
+    """.tanakh/runs/<BOOK>_<CCC>.json per chapter. Each kind's `register` is what its build recorded at draft time (the
+    revision and the entries' sha256); a build from before the record (2026-11-12) gets the revision at bundle time,
+    marked `register at bundle`. `drafted` is make-tanakh's lifecycle stamp ({revision, when}) of the main draft"""
     out = collections.defaultdict(dict)
     for kind, drafts in AL.kinds(bundle).items():
         man = manifests.get(kind) or {}; b = (man.get("builds") or [{}])[-1]; s = (man.get("sends") or [{}])[-1]
+        reg = b.get("register") if isinstance(b.get("register"), dict) else None
         for (bk, c) in drafts:
             out[(bk, c)][kind] = {k: v for k, v in {
                 "run": f"{labels.get(kind, kind)}@{(b.get('when') or '')[:10]}", "label": labels.get(kind, kind),
                 "model": s.get("model") or b.get("model"), "prompts sha256": b.get("prompts sha256"), "code": b.get("code"),
-                "register": register_rev, "built": b.get("when"), "kind of draft": b.get("kind") or kind}.items() if v}
+                "register": reg and reg.get("revision"), "register sha256": reg and reg.get("sha256"),
+                "register at bundle": None if reg else register_now, "built": b.get("when"), "kind of draft": b.get("kind") or kind}.items() if v}
     d = os.path.join(bundle, ".tanakh", "runs"); os.makedirs(d, exist_ok=True)
     for (bk, c), kinds in sorted(out.items()):
-        json.dump({"book": bk, "chapter": c, "main": "main", "drafts": kinds}, open(os.path.join(d, f"{bk}_{c:03d}.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+        m = kinds.get("main") or {}
+        drafted = {"revision": m.get("register") or m.get("register at bundle"), "when": m.get("built")} if m else None
+        json.dump({"book": bk, "chapter": c, "main": "main", **({"drafted": drafted} if drafted else {}), "drafts": kinds},
+                  open(os.path.join(d, f"{bk}_{c:03d}.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
     return len(out)
 
 
@@ -198,8 +205,8 @@ def write_clause_features(bundle):
 
 
 def register_revision(lang):
-    d = paths.config(lang).get("_register"); p = d and os.path.join(d, "VERSION.json")
-    return json.load(open(p, encoding="utf-8")).get("revision") if p and os.path.exists(p) else None
+    from shared import register
+    return register.version(paths.config(lang).get("_register")).get("revision")
 
 
 def main():

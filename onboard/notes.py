@@ -17,6 +17,11 @@ the dev book out while the dev check is still to be run, so that the pages have 
     python3 onboard/notes.py send  --lang zin                      # one request per page; rerun to go on
     python3 onboard/notes.py use   --lang zin                      # name the pages in the language's configuration
 
+With --register, every page's examples are followed by the team's decided entries of the register (terms, names, formulas,
+rules, morphs, spelling, questionnaire answers), as binding: where the examples and a decision disagree, the page follows the
+decision and says so (plan internal-docs/review-feedback-data-plan-2026-11-10.md, section 3.9). --out <name> keeps such pages
+apart (notes/prompts-<name>, notes/<name>, build-<name>.json); the drafter reads them with draft.py build --pages <name>.
+
 Prompts and pages: $MAKE_TANAKH_PRIVATE/lang/<iso>/notes/{prompts, grammar}/<page>.md."""
 import argparse, collections, glob, hashlib, json, os, sqlite3, sys, time
 
@@ -145,6 +150,41 @@ def notes_dir(lang, *sub):
     d = paths.lang_dir(lang, "notes", *sub); os.makedirs(d, exist_ok=True); return d
 
 
+def dirs(a):
+    """(prompts, pages, build record) of --out"""
+    o = a.out or "grammar"
+    return ("prompts" if o == "grammar" else f"prompts-{o}"), o, ("build.json" if o == "grammar" else f"build-{o}.json")
+
+
+def decisions_block(cfg):
+    """the page prompt's section of the team's decided entries ([] when the register has none)"""
+    from shared import register as RG
+    if not cfg.get("_register"):
+        return []
+    E = RG.load(cfg["_register"]); B = RG.binding(E); P = RG.parameters(); name = cfg["name"]; L = []
+    for e in B:
+        k = e["kind"]
+        if k in ("term", "name"):
+            also = RG.forms(e, "admitted"); no = RG.forms(e, "deprecated")
+            L.append(f"- {k} {e.get('source') or e['id'].split(':', 1)[1]}" + (f" ('{', '.join(e['words'][:3])}')" if e.get("words") else "") +
+                     f": {e['value']}" + (f"; also {', '.join(also)}" if also else "") + (f"; not {', '.join(no)}" if no else ""))
+        elif k == "formula":
+            L.append(f"- set phrase {e.get('source') or e['id'].split(':', 1)[1]}: {e['value']}")
+        elif k == "rule":
+            L.append(f"- rule: {e.get('said') or e['value']}")
+        elif k == "morph":
+            L.append(f"- morpheme {e['id'].split(':')[1]} ({e.get('slot')}, on a {e.get('host')}): {e['value']}")
+        elif k in ("letter", "orthography"):
+            L.append(f"- spelling: {e['value']}")
+        elif k == "feature" and e.get("parameter") in P and not e["parameter"].startswith("MT-A3"):
+            L.append(f"- {P[e['parameter']].get('question') or e['parameter']}: {e['value']}" + (f" ({e['note']})" if e.get("note") else ""))
+    if not L:
+        return []
+    return ["# The team's decisions", "", f"The {name} translation team has decided these points. They are binding: where an example above "
+            "disagrees with one, the decision holds; write the rule as the team decided it and say on the page that the team decided it. "
+            "Do not repeat the decisions that have nothing to do with this page's topic.", ""] + L + [""]
+
+
 def cmd_build(a):
     cfg = paths.config(a.lang); leave = tuple(x for x in (a.leave_out or "").split(",") if x); T = tokens.greek()
     vg, gg, _ = evidence.read_corpus(cfg, "grc", leave)
@@ -153,7 +193,9 @@ def cmd_build(a):
     pool, _ = evidence.greek_clauses(T, gg, vg, set()); G = tokens.glosses("grc")
     z = sqlite3.connect(paths.work("orig", "grc.sqlite"))
     case = dict(z.execute("select key, gcase from tokens where gcase is not null")); quest = {k for k, in z.execute("select key from tokens where after like '%;%'")}
-    d = notes_dir(a.lang, "prompts"); meta = {"when": time.strftime("%Y-%m-%d %H:%M"), "left out": list(leave), "pool clauses": len(pool), "pages": {}}
+    pd, _, bj = dirs(a); dec = decisions_block(cfg) if a.register else []
+    d = notes_dir(a.lang, pd); meta = {"when": time.strftime("%Y-%m-%d %H:%M"), "left out": list(leave), "pool clauses": len(pool), "pages": {},
+                                       "register": len([x for x in dec if x.startswith("- ")]) if a.register else None}
     for page, title, about, words, spec in TOPICS:
         chosen = pick(select(pool, spec, case, quest))
         L = [f"# {cfg['name']}: examples for the page '{title}'", "",
@@ -163,16 +205,17 @@ def cmd_build(a):
              "words; '<- -' = linked to no Greek word).", ""]
         for n, (key, c) in enumerate(chosen, 1):
             L += example(n, key, c, G) + [""]
+        L += dec
         L.append(TASK.format(n=len(chosen), about=about, title=title, name=cfg["name"], words=words))
         txt = "\n".join(L); open(os.path.join(d, page + ".md"), "w", encoding="utf-8").write(txt)
         meta["pages"][page] = {"title": title, "examples": len(chosen), "keys": len({k for k, _ in chosen}), "characters": len(txt),
                                "books": len({c["book"] for _, c in chosen})}
         print(f"{page}: {len(chosen)} examples of {meta['pages'][page]['keys']} kinds, {len(txt)} characters")
-    json.dump(meta, open(os.path.join(notes_dir(a.lang), "build.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+    json.dump(meta, open(os.path.join(notes_dir(a.lang), bj), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
 
 
 def cmd_send(a):
-    cfg = paths.config(a.lang); d = notes_dir(a.lang, "prompts"); od = notes_dir(a.lang, "grammar"); rights.check(cfg, "llm")
+    pd, o, _ = dirs(a); cfg = paths.config(a.lang); d = notes_dir(a.lang, pd); od = notes_dir(a.lang, o); rights.check(cfg, "llm")
     items = [(p, open(os.path.join(d, p + ".md"), encoding="utf-8").read()) for p, *_ in TOPICS
              if os.path.exists(os.path.join(d, p + ".md")) and not os.path.exists(os.path.join(od, p + ".md"))]
     if not items:
@@ -185,7 +228,7 @@ def cmd_send(a):
             open(os.path.join(od, page + ".md"), "w", encoding="utf-8").write(r["text"].strip() + "\n")
         log["pages"][page] = {"ok": r["ok"], "characters": len(r.get("text") or ""), "list USD": r.get("list_usd"), "error": r.get("error")}
         print(page, log["pages"][page], flush=True)
-    json.dump(log, open(os.path.join(notes_dir(a.lang), f"send-{time.strftime('%Y%m%d-%H%M')}.json"), "w"), indent=1)
+    json.dump(log, open(os.path.join(notes_dir(a.lang), f"send-{dirs(a)[1]}-{time.strftime('%Y%m%d-%H%M')}.json"), "w"), indent=1)
 
 
 def cmd_use(a):
@@ -200,6 +243,8 @@ def cmd_use(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=("build", "send", "use")); ap.add_argument("--lang", required=True); ap.add_argument("--leave-out")
+    ap.add_argument("--register", action="store_true", help="build: the team's decided register entries, binding, on every page")
+    ap.add_argument("--out", help="build, send: pages of their own under notes/<out> (default grammar)")
     a = ap.parse_args(); {"build": cmd_build, "send": cmd_send, "use": cmd_use}[a.cmd](a)
 
 

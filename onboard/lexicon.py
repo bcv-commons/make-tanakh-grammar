@@ -3,24 +3,28 @@
 code from the alignment layers. No verse text inside: word forms, counts and references only. Private, like the corpus.
 
     . ./env.sh
-    python3 onboard/lexicon.py words --lang xxx          -> $MAKE_TANAKH_PRIVATE/lang/<iso>/lexicon/words.db (replaced)
+    python3 onboard/lexicon.py words --lang xxx [--out F] -> $MAKE_TANAKH_PRIVATE/lang/<iso>/lexicon/words.db (replaced)
     python3 onboard/lexicon.py check --lang xxx          -> coverage figures
 
-words.db, from the layer on the written words (whole words) of every corpus of the configuration:
+words.db is in make-tanakh's format (scripts/words.py, docs/word-db.md: our schema extended; written by its write_db
+since v0.5.0), from the layer on the written words (whole words) of every corpus of the configuration. Its tables:
 
-  lexeme(id, lang, strong, lemma, cls, n)          a source lexeme: `grc:26`, `hbo:3117` (Strong's number as the public
+  lexeme(id, lang, strong, lemma, cls, n, type)    a source lexeme: `grc:26`, `hbo:3117` (Strong's number as the public
                                                    index writes it, a Hebrew homonym letter kept: `hbo:2050b`)
-  form(id, form, plain, bare, tokens, n)           a target form as written (NFC), lower case (`plain`), and without its
+  form(id, form, plain, bare, tokens, n, project)  a target form as written (NFC), lower case (`plain`), and without its
                                                    marks (`bare`; the configuration's "keep_marks" are kept); a link to
                                                    several tokens is one form, its tokens joined by a space, or by " … "
                                                    where words of the verse stand between them
   link(lexeme, form, n, n_strong, books, share, back)
                                                    one row per pair; n_strong = links the aligner itself rated high (method
                                                    letter in upper case); share = of the lexeme's links, back = of the form's
-  occ(lexeme, form, ref, src, key, positions, method)
+  occ(lexeme, form, ref, src, key, positions, method, edition, layer, level)
                                                    every link: the verse (the team's numbering), the source word (`c3` = the
                                                    fourth content word of the verse in the public index, `f0` a function
-                                                   word), its token key, the target token positions, the method letter
+                                                   word), its token key, the target token positions, the method letter,
+                                                   the edition, the layer, `words`
+  vocab(plain, bare, book, ch, n, edition)         the written words per chapter (make-tanakh's spelling check reads it)
+  meta(name, value)                                what it was built from; `format` is make-tanakh's
 
 The layer is the corpus's "words_layer" when it names one (a published layer of the same wording, checked verse by verse
 when the entry says "verses": true; onboard/corpus.py), else the corpus's own layer when it is on the written words (a
@@ -34,6 +38,7 @@ from shared import holdout, paths  # noqa: E402
 from source import tokens  # noqa: E402
 from onboard.corpus import parse, published_verses, verse_hash  # noqa: E402
 import full_align as FA, vrs  # noqa: E402  (the toolkit: the public index of the source words; the numberings)
+import words as WT  # noqa: E402  (the toolkit's word DB: its format and writer)
 
 
 def words_layer(lang, cfg, x):
@@ -75,19 +80,12 @@ def bare(s, keep):
 
 def cmd_words(a):
     cfg = paths.config(a.lang); shut = holdout.shut(cfg); keep = set(cfg.get("keep_marks", []))
-    out = paths.lang_dir(a.lang, "lexicon", "words.db"); os.makedirs(os.path.dirname(out), exist_ok=True); tmp = out + ".tmp"
-    if os.path.exists(tmp):
-        os.remove(tmp)
-    db = sqlite3.connect(tmp)
-    db.execute("create table lexeme(id text primary key, lang text, strong text, lemma text, cls text, n int)")
-    db.execute("create table form(id integer primary key, form text unique, plain text, bare text, tokens int, n int)")
-    db.execute("create table link(lexeme text, form int, n int, n_strong int, books text, share real, back real, primary key (lexeme, form))")
-    db.execute("create table occ(lexeme text, form int, ref text, src text, key text, positions text, method text)")
-    db.execute("create table meta(name text, value text)")
-    forms, lex, occ = {}, {}, []; st = collections.Counter(); rec = {"built": time.strftime("%Y-%m-%d %H:%M"), "corpora": {}}
+    out = a.out or paths.lang_dir(a.lang, "lexicon", "words.db")
+    edition = cfg["text"]["edition"]; SRC = WT.Source()                       # the type (proper or not) as make-tanakh reads it
+    lex, occ, vocab = {}, [], collections.Counter(); st = collections.Counter(); rec = {"built": time.strftime("%Y-%m-%d %H:%M"), "corpora": {}}
     for x in cfg["corpora"]:
         source = x["source"]; hebrew = source == "hbo"; mine = set(tokens.books(source)); excl = set(x.get("exclude_books") or [])
-        ld = words_layer(a.lang, cfg, x); toks, hdr, vhash = split_tokens(paths.resolve(a.lang, x["split"])); fp = hdr.get("text_fp", {})
+        ld = words_layer(a.lang, cfg, x); layer = os.path.relpath(ld, paths.private()); toks, hdr, vhash = split_tokens(paths.resolve(a.lang, x["split"])); fp = hdr.get("text_fp", {})
         vcheck = published_verses(ld) if x.get("verses") else None
         src_tok = tokens.hebrew(sorted(mine)) if hebrew else tokens.greek(); seen = set(); used = []
         for lf in sorted(glob.glob(os.path.join(ld, "*_*.json"))):
@@ -120,7 +118,10 @@ def cmd_words(a):
                     seen.add(ref)
                 if shut(book, int(ref.split(" ")[1].split(":")[0])):
                     st["verses left out (closed or held out)"] += 1; continue
-                st["verses"] += 1
+                st["verses"] += 1; bk, ch = ref.split(" ")[0], int(ref.split(" ")[1].split(":")[0])
+                for w in tk:
+                    if re.search(r"\w", w):
+                        vocab[(unicodedata.normalize("NFC", w).lower(), bk, ch, edition)] += 1
                 for kind, s, lexs, keys, ms in (("c", main_s[i] if i < len(main_s) else "", L.get(r, []), K.get(r, []), meth[i] if i < len(meth) else ""),
                                                 ("f", fn_s[i] if i < len(fn_s) else "", FL.get(r, []), FK.get(r, []), "")):
                     for j, (o, ps) in enumerate(parse(s).items()):
@@ -130,31 +131,15 @@ def cmd_words(a):
                             continue
                         form = unicodedata.normalize("NFC", "".join((" … " if n and p > ps[n - 1] + 1 else " " if n else "") + tk[p]
                                                                     for n, p in enumerate(ps))); m = ms[j] if j < len(ms) else ""
-                        if form not in forms:
-                            forms[form] = len(forms) + 1
                         if lx not in lex:
-                            t = src_tok.get(key.split("+")[0].lstrip("n")) or {}
-                            lex[lx] = (source, lx.split(":")[1], t.get("lemma"), t.get("cls"))
-                        occ.append((lx, forms[form], ref, f"{kind}{o}", key, json.dumps(ps), m)); st["links"] += 1
-        rec["corpora"][source] = {"layer": os.path.relpath(ld, paths.private()), "books": used}
-    n_lex = collections.Counter(o[0] for o in occ); n_form = collections.Counter(o[1] for o in occ)
-    pair = collections.defaultdict(lambda: [0, 0, set()])
-    for lx, fm, ref, _, _, _, m in occ:
-        p = pair[(lx, fm)]; p[0] += 1; p[1] += m.isupper(); p[2].add(ref.split(" ")[0])
-    db.executemany("insert into lexeme values (?,?,?,?,?,?)", [(k, *v, n_lex[k]) for k, v in lex.items()])
-    db.executemany("insert into form values (?,?,?,?,?,?)",
-                   [(i, f, f.lower(), bare(f.lower(), keep), len(f.replace(" … ", " ").split()), n_form[i]) for f, i in forms.items()])
-    db.executemany("insert into link values (?,?,?,?,?,?,?)", [(lx, fm, n, s, ",".join(sorted(b)), n / n_lex[lx], n / n_form[fm])
-                                                             for (lx, fm), (n, s, b) in pair.items()])
-    db.executemany("insert into occ values (?,?,?,?,?,?,?)", occ)
-    for ix in ("create index form_plain on form(plain)", "create index form_bare on form(bare)", "create index link_form on link(form)",
-               "create index occ_lexeme on occ(lexeme)", "create index occ_form on occ(form)", "create index occ_ref on occ(ref)"):
-        db.execute(ix)
-    rec.update({k: v for k, v in st.items()}, lexemes=len(lex), forms=len(forms), pairs=len(pair))
-    for k, v in rec.items():
-        db.execute("insert into meta values (?,?)", (k, json.dumps(v) if not isinstance(v, str) else v))
-    db.commit(); db.close(); os.replace(tmp, out)
-    print(json.dumps({k: v for k, v in rec.items() if k != "corpora"}), "->", out)
+                            k0 = key.split("+")[0].lstrip("n"); t = src_tok.get(k0) or {}
+                            lex[lx] = (source, lx.split(":")[1], t.get("lemma"), t.get("cls"), (SRC.book(source, book).get(k0) or (None, None, None))[2])
+                        occ.append((lx, form, ref, f"{kind}{o}", key, json.dumps(ps), m, edition, layer, "words")); st["links"] += 1
+        rec["corpora"][source] = {"layer": layer, "books": used}
+    rec.update({k: v for k, v in st.items()}, language=a.lang, keep_marks=[f"U+{ord(c):04X}" for c in sorted(keep)])
+    WT.write_db(out, occ, lex, vocab, rec, keep=tuple(keep))
+    db = sqlite3.connect(out); m = dict(db.execute("select name, value from meta")); db.close()
+    print(json.dumps({k: m[k] for k in ("built", "format", "lexemes", "forms", "links", "pairs", "verses") if k in m}), "->", out)
 
 
 def cmd_check(a):
@@ -176,6 +161,7 @@ def cmd_check(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=("words", "check")); ap.add_argument("--lang", required=True)
+    ap.add_argument("--out", help="words: another file than lexicon/words.db (to compare)")
     a = ap.parse_args(); {"words": cmd_words, "check": cmd_check}[a.cmd](a)
 
 

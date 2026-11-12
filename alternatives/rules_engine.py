@@ -8,7 +8,7 @@ The TBTA data is private and stays under $MAKE_TANAKH_PRIVATE/tbta (copied from 
   props/<bk><ccc>_props.jsonl        TBTA's propositions per chapter (with _macula_clauses.jsonl beside them when paired)
   pairing/resolved.tsv               a proposition's MACULA span and anchor
   clauses/clause_{feats,layers}_{nt,ot}.json   clause fields per clause-layout row (force, negation, voice, person; discourse line)
-The concept-to-Strong's table is TBTA's own (the work copy's download/tbta). No chapter that shared/holdout.py shuts is read:
+The concept-to-Strong's table is TBTA's own (its download, in $MAKE_TANAKH_PRIVATE/tbta/download). No chapter that shared/holdout.py shuts is read:
 Book refuses it, and the team's text of such a chapter is never loaded."""
 import collections, csv, glob, json, os, re, sqlite3, unicodedata
 
@@ -47,6 +47,12 @@ def chapters(books, shut=None):
         if code in books and not (shut and shut(code, ch)) and os.path.exists(f.replace("_props.jsonl", "_macula_clauses.jsonl")):
             out.append((code, ch))
     return out
+
+
+def top(c):
+    """a Counter's most common (key, count); a tie goes to the smallest key (by repr), not to the first counted, so a result
+    no longer depends on the order sets of strings iterate in (PYTHONHASHSEED)"""
+    return min(c.items(), key=lambda kv: (-kv[1], repr(kv[0])))
 
 
 def marked(parts, wordidx, mark="@@ "):
@@ -307,10 +313,10 @@ _SMAP = {}
 
 
 def load_smap():
-    """TBTA's concept -> {G<n>, H<n>} (concept_strongs_mappings.tsv in the work copy's TBTA download)"""
+    """TBTA's concept -> {G<n>, H<n>} (concept_strongs_mappings.tsv in TBTA's download, private/tbta/download)"""
     if not _SMAP:
         m = collections.defaultdict(set)
-        f = paths.work("download", "tbta", "ai-framework", "scripts", "add_strongs_to_concepts", "data", "concept_strongs_mappings.tsv")
+        f = paths.private("tbta", "download", "ai-framework", "scripts", "add_strongs_to_concepts", "data", "concept_strongs_mappings.tsv")
         for r in csv.DictReader(open(f, encoding="utf-8"), delimiter="\t"):
             for s in r["strongs_list"].split(","):
                 s = s.strip()
@@ -581,7 +587,7 @@ def learn_dl(name, kind, sub, rows, levels, min_n, min_share, extra=None):
             if not any(x is None for x in key):
                 cnt[key][v] += 1
         for key, c in cnt.items():
-            v, n = c.most_common(1)[0]; tot = sum(c.values())
+            v, n = top(c); tot = sum(c.values())
             if n >= min_n and n / tot >= min_share:
                 r = dict(kind=kind, sub=sub, when=dict(zip(l, key)), do={"value": v}, n=n, share=round(n / tot, 3), source="counts")
                 r.update(extra or {}); T.add(r)

@@ -487,7 +487,7 @@ def cmd_draft(a):
         for q, ws in zip(cl, per):
             trace[q["id"]] = [h for _, h in ws]; st["clauses"] += 1; st["clauses without words"] += not ws; st["words"] += len(ws)
     draft.save_groups(a, gj); m = draft.load_manifest(a)
-    m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "kind": "rules", "source": source, "chapters": chs,
+    m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "register": draft.register_stamp(cfg), "kind": "rules", "source": source, "chapters": chs,
                         "verses": len(groups), "clauses": len(E.order), "evidence": E.meta, "leave out": leave,
                         "model": "rules learned from the team's New Testament", "rules": {"file": os.path.basename(rp), "date": rules["meta"]["date"],
                         "training chapters": len(rules["meta"]["chapters"]), "settings": rules["meta"]["settings"], "overrides": rules["meta"].get("overrides", 0), "team rules": rules["meta"].get("team rules", 0)},

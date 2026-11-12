@@ -11,7 +11,9 @@ the candidate stems: the stems the team's text gives the same lexeme, counted by
   evidence  the evidence clauses shown for the clause
 The stems of the chapters being drafted are never counted (a Hebrew job's pool holds its own chapters for the other clauses).
 With --lexicon, per content word also the team's commonest whole words for its lexeme (drafting/lexicon.py: its own forms, for a
-Hebrew word then those of its usual Greek equivalents), which a slot may take as they are.
+Hebrew word then those of its usual Greek equivalents), which a slot may take as they are. With --decisions the register's
+binding entries filter both lists: a source word's decided term or name comes first among its whole words (as "team"), and
+the forms the team deprecates or denies are dropped from the candidate stems and the whole words.
 
     . ./env.sh
     python3 alternatives/shape.py build --lang kvg --book EXO --chapters 1      # the prompts (free)
@@ -136,8 +138,11 @@ def known_words(LX, source, q):
 
 
 class Shape:
-    def __init__(self, cfg, E, lexicon=False):
-        self.cfg, self.E = cfg, E; self.G = tokens.glosses("grc")
+    def __init__(self, cfg, E, lexicon=False, decisions=False):
+        self.cfg, self.E = cfg, E; self.G = tokens.glosses("grc"); self.team, self.deny = {}, set()
+        if decisions and cfg.get("_register"):
+            from shared import register as RG
+            reg = RG.load(cfg["_register"]); self.team = RG.by_lexeme(reg); self.deny = RG.deprecated(reg)
         book, chs = E.meta["book"], set(E.meta["chapters"])
         self.L = Lexicon(E.pool, lambda c: c["book"] == book and c["ch"] in chs)
         from source import bridges
@@ -156,10 +161,26 @@ class Shape:
         return g
 
     def parts(self, q):
-        ev = self.E.top(q["id"], N_EV); return ev, candidates(self.L, self.lex, self.E.source, q, ev)
+        ev = self.E.top(q["id"], N_EV); c = candidates(self.L, self.lex, self.E.source, q, ev)
+        if self.deny:
+            c = {i: [x for x in cl if x[0].lower() not in self.deny] for i, cl in c.items()}; c = {i: cl for i, cl in c.items() if cl}
+        return ev, c
 
     def words(self, q):
-        return known_words(self.LX, self.E.source, q) if self.LX else {}
+        """{source word number: [(whole word, share or None, label)]}: the team's decided forms first ("team"), then the lexicon's"""
+        out = known_words(self.LX, self.E.source, q) if self.LX else {}
+        if not (self.team or self.deny):
+            return out
+        from shared import register as RG
+        for i, t in enumerate(q["tokens"], 1):
+            if t["cls"] not in prompt.CONTENT:
+                continue
+            key = ("grc", t["lemma"]) if self.E.source == "grc" else ("hbo", t["strong"])
+            team = [(f, None, "team") for e in self.team.get(key, []) if RG.applies(e, self.E.source, t) for f in RG.forms(e, "preferred", "admitted")]
+            rest = [w for w in out.get(i, []) if w[0].lower() not in self.deny and w[0] not in {f for f, _, _ in team}]
+            if team or rest:
+                out[i] = (team + rest)[:N_CAND]
+        return out
 
     def verse(self, clauses):
         E, src, name = self.E, self.E.source, self.cfg["name"]
@@ -189,9 +210,10 @@ class Shape:
                 for i, ws in kw.items():
                     t = q["tokens"][i - 1]
                     L.append(f"- word {i} {t['text']} ({t['lemma']}): " + "; ".join(
-                        f"{n} {f} ({sh:.0%}" + (f", as Greek {lb}" if lb else "") + ")" for n, (f, sh, lb) in enumerate(ws, 1)))
+                        (f"{n} {f} (the team's decided term)" if lb == "team" else f"{n} {f} ({sh:.0%}" + (f", as Greek {lb}" if lb else "") + ")")
+                        for n, (f, sh, lb) in enumerate(ws, 1)))
             L.append("")
-        L.append(TASK.format(lang=name, word=WORD if self.LX else ""))
+        L.append(TASK.format(lang=name, word=WORD if self.LX or self.team else ""))
         return "\n".join(L), refs
 
 
@@ -236,15 +258,16 @@ def realise(slots, q, ev, cands, words=None):
 
 def cmd_build(a):
     cfg = paths.config(a.lang); src = a.source or draft.source_of(a.book); chs = draft.chapters_arg(a.chapters)
-    E = evidence.build(cfg, src, a.book, chs, tuple(x for x in (a.leave_out or "").split(",") if x)); S = Shape(cfg, E, a.lexicon)
+    E = evidence.build(cfg, src, a.book, chs, tuple(x for x in (a.leave_out or "").split(",") if x)); S = Shape(cfg, E, a.lexicon, a.decisions)
     d = draft.job_dir(a, "prompts"); n = chars = 0; groups = {}; h = hashlib.sha256()
     for v, cl in S.groups().items():
         txt, refs = S.verse(cl); open(os.path.join(d, draft.vid(v) + ".md"), "w", encoding="utf-8").write(txt)
         groups[draft.vid(v)] = {"refs": refs, "clauses": [q["id"] for q in cl]}; n += 1; chars += len(txt); h.update(txt.encode("utf-8"))
     draft.save_groups(a, groups); m = draft.load_manifest(a)
-    m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "kind": "shape", "source": src, "chapters": chs, "verses": n,
+    m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "register": draft.register_stamp(cfg), "kind": "shape", "source": src, "chapters": chs, "verses": n,
                         "clauses": len(E.order), "characters": chars, "prompts sha256": h.hexdigest(), "evidence": E.meta,
-                        "leave out": [x for x in (a.leave_out or "").split(",") if x], "lexicon": {"words.db built": S.LX.built} if S.LX else None})
+                        "leave out": [x for x in (a.leave_out or "").split(",") if x], "lexicon": {"words.db built": S.LX.built} if S.LX else None,
+                        "decisions": {"terms": len({id(e) for es in S.team.values() for e in es}), "denied forms": len(S.deny)} if a.decisions else None})
     draft.save_manifest(a, m)
     print(f"{a.lang} {a.book} {chs}: {n} verses, {len(E.order)} clauses, {chars} characters (about {chars // 3} input tokens) -> {d}")
 
@@ -281,7 +304,7 @@ def cmd_words(a):
     if not b:
         sys.exit("no shape build in this run: build first")
     chs = sorted({c for x in m["builds"] if x.get("kind") == "shape" for c in x["chapters"]})
-    E = evidence.build(cfg, b["source"], a.book, chs, tuple(b.get("leave out", ()))); S = Shape(cfg, E, bool(b.get("lexicon")))
+    E = evidence.build(cfg, b["source"], a.book, chs, tuple(b.get("leave out", ()))); S = Shape(cfg, E, bool(b.get("lexicon")), bool(b.get("decisions")))
     td = draft.job_dir(a, "templates"); od = draft.job_dir(a, "answers"); trace = {}; st = collections.Counter()
     for i, refs, ids, _ in draft.load_groups(a):
         p = os.path.join(td, i + ".json")
@@ -303,6 +326,7 @@ def main():
     ap.add_argument("cmd", choices=("build", "send", "words")); ap.add_argument("--lang", required=True); ap.add_argument("--book", required=True)
     ap.add_argument("--chapters"); ap.add_argument("--label", default="shape"); ap.add_argument("--source", choices=paths.SOURCES); ap.add_argument("--leave-out")
     ap.add_argument("--lexicon", action="store_true", help="build: offer the content words' whole words from lexicon/words.db")
+    ap.add_argument("--decisions", action="store_true", help="build: the register's decided terms first, its denied forms dropped")
     a = ap.parse_args(); a.book = a.book.upper()
     if a.cmd == "build" and not a.chapters:
         sys.exit("build needs --chapters")

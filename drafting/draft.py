@@ -83,11 +83,34 @@ def load_groups(a):
     return [(i, x["refs"], x["clauses"], x.get("order")) for i, x in sorted(g.items(), key=lambda kv: prompt.ref_key(kv[1]["refs"][0]))]
 
 
+def register_stamp(cfg):
+    """the register a build ran against (shared/register.stamp: revision, sha256 of the entries, changes not yet in a
+    revision), recorded at draft time; publish/derived.py carries it into .tanakh/runs/"""
+    from shared import register
+    return register.stamp(cfg.get("_register"))
+
+
+def use_pages(cfg, name):
+    """cfg with the grammar pages of notes/<name> (onboard/notes.py build --out <name>)"""
+    d = paths.lang_dir(cfg["iso"], "notes", name)
+    pages = [p for p in json.load(open(os.path.join(os.path.dirname(d), f"build-{name}.json" if name != "grammar" else "build.json"), encoding="utf-8"))["pages"]
+             if os.path.exists(os.path.join(d, p + ".md"))] if os.path.isdir(d) else []
+    if not pages:
+        sys.exit(f"{d}: no pages")
+    cfg["notes"] = {"dir": f"notes/{name}", "pages": pages, "intro": f"Notes on {cfg['name']} grammar, written from the team's translation and its decisions:"}
+    cfg["_notes_dir"] = d
+    return cfg
+
+
 def cmd_build(a):
     cfg = paths.config(a.lang); src = a.source or source_of(a.book); chs = chapters_arg(a.chapters)
+    if a.pages:
+        cfg = use_pages(cfg, a.pages)
+    a.decisions = (a.decisions or bool(cfg.get("decisions"))) and not a.no_decisions
     leave = tuple(x for x in (a.leave_out or "").split(",") if x)
     E = evidence.build(cfg, src, a.book, chs, leave)
-    B = prompt.Builder(cfg, E, a.book, chs, notes=not a.no_notes, lexicon=a.lexicon, pieces="mark" if a.pieces else "select" if a.only_pieces else False)
+    B = prompt.Builder(cfg, E, a.book, chs, notes=not a.no_notes, lexicon=a.lexicon, pieces="mark" if a.pieces else "select" if a.only_pieces else False,
+                       decisions=a.decisions)
     d = job_dir(a, "prompts"); n = chars = 0; h = hashlib.sha256(); groups = {}
     for v, cl in B.groups().items():
         txt, refs = B.verse(cl)
@@ -104,7 +127,9 @@ def cmd_build(a):
                         "team words per source word": B.ratio and round(B.ratio, 3),
                         "notes": {"pages": cfg["notes"]["pages"], "lines dropped": B.notes_dropped} if B.notes else None,
                         "pieces": a.pieces or None, "only groups with a cut clause": a.only_pieces or None,
-                        "lexicon": {"words.db built": B.lexi.built} if B.lexi else None})
+                        "lexicon": {"words.db built": B.lexi.built} if B.lexi else None,
+                        "decisions": {k: len(v) for k, v in B.decisions.items()} if a.decisions else None,
+                        "register": register_stamp(cfg)})
     save_manifest(a, m)
     print(f"{a.lang} {a.book} {chs}: {n} verses, {len(E.order)} clauses, {chars} characters (about {chars // 3} input tokens) -> {d}")
 
@@ -216,6 +241,10 @@ def main():
     ap.add_argument("--lexicon", action="store_true", help="build: show the content words' forms from lexicon/words.db")
     ap.add_argument("--pieces", action="store_true", help="build: say where another clause cuts a clause, and let the drafter place it")
     ap.add_argument("--only-pieces", action="store_true", help="build: only the verse groups with a cut clause (a measurement)")
+    ap.add_argument("--decisions", action="store_true", help="build: the team's decided formulas, rules and spelling from the register "
+                    "(on by default where the configuration says \"decisions\": true)")
+    ap.add_argument("--no-decisions", action="store_true", help="build: without the team's decisions, whatever the configuration says")
+    ap.add_argument("--pages", help="build: the grammar pages of $MAKE_TANAKH_PRIVATE/lang/<iso>/notes/<pages> instead of the configuration's")
     ap.add_argument("--cap", type=float, default=0.0, help="api backend: the most this run may spend in all, USD")
     a = ap.parse_args(); a.book = a.book.upper()
     if a.cmd == "build" and not a.chapters:

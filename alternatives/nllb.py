@@ -157,7 +157,7 @@ def cmd_draft(a):
                   ensure_ascii=False)
         g[draft.vid(v)] = {"refs": sorted({r for q in cl for r in q["refs"]}, key=prompt.ref_key), "clauses": [q["id"] for q in cl]}
     draft.save_groups(a, g); m = draft.load_manifest(a); mdir, mm = model_of(cfg, src)
-    m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "kind": "nllb", "source": src, "chapters": chs, "verses": len(groups),
+    m["builds"].append({"when": time.strftime("%Y-%m-%d %H:%M"), "code": draft.commit(), "register": draft.register_stamp(cfg), "kind": "nllb", "source": src, "chapters": chs, "verses": len(groups),
                         "clauses": len(E.order), "clauses without text": empty, "model": os.path.basename(mdir), "codes": [mm["src_code"], mm["trg_code"]],
                         "samples": a.k, "seed": a.seed})
     draft.save_manifest(a, m)

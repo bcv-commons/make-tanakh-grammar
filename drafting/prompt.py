@@ -229,13 +229,29 @@ def team_terms_store(cfg):
     out = []
     if not cfg["_store"]:
         return out
+    from shared import register                      # make-tanakh's loader: an old JSON store or a converted one alike
+    files = register.T.store_files(cfg["_store"])
     for f in ("observations.json", "decisions.json"):
-        fp = os.path.join(cfg["_store"], f)
-        if os.path.exists(fp):
-            for e in json.load(open(fp, encoding="utf-8")).get("entries", []):
+        if f in files:
+            for e in files[f].get("entries", []):
                 if e.get("method") == "team-decision" and e.get("status") != "superseded" and str(e.get("id", "")).startswith(("term:", "name:")):
                     out.append((e["id"], e.get("value") or ""))
     return out
+
+
+def team_decisions(cfg):
+    """the drafter's lines for the team's other decided entries (formulas, rules, morphs, spelling) from the register:
+    {section: [line]}; {} without a register"""
+    if cfg.get("_register") and os.path.exists(os.path.join(cfg["_register"], "VERSION.json")):
+        from shared import register
+        return register.decision_lines(register.load(cfg["_register"]))
+    return {}
+
+
+DECISIONS = {"set phrases": ("The team's set phrases", "Phrases the team has decided how to write: use them where the source has them."),
+             "rules": ("The team's rules", "Rules of {name} the team has stated. They are binding: where the examples or the grammar notes "
+                       "disagree with them, follow these."),
+             "spelling": ("The team's spelling rules", "")}
 
 
 def grammar_notes(cfg, book, chapters, leave_out_books=()):
@@ -270,7 +286,7 @@ class Builder:
     """everything the verses of one job share: the evidence, the function-word index, the glosses, the fullness figure, the team's
     terms and the grammar notes. bridged = the language has no text from the job's source language (a Hebrew job for a language
     with an NT only): function words, similar verses and the fullness figure then come from the team's NT, through the bridges"""
-    def __init__(self, cfg, E, book, chapters, notes=True, lexicon=False, pieces=False):
+    def __init__(self, cfg, E, book, chapters, notes=True, lexicon=False, pieces=False, decisions=False):
         self.pieces = pieces; self.order = None             # pieces: False | "mark" (say where clauses are cut) | "select" (only find them)
         self.cfg, self.E, self.book, self.chapters = cfg, E, book, set(chapters)
         self.lexi = None
@@ -283,7 +299,7 @@ class Builder:
         self.func = FuncIndex(E.pool)
         self.bridged = E.source == "hbo" and not E.verses
         self.ratio = fullness(cfg, "grc" if self.bridged else E.source, book, self.chapters, E.left_out)
-        self.terms = team_terms(cfg)
+        self.terms = team_terms(cfg); self.decisions = team_decisions(cfg) if decisions else {}
         self.notes, self.notes_dropped = grammar_notes(cfg, book, self.chapters, E.left_out) if notes else ([], 0)
         self.vtext = tokens.verse_texts(E.source, {r for qid in E.order for r in E.queries[qid]["refs"]})
         if self.bridged:
@@ -411,6 +427,9 @@ class Builder:
             L.append("")
         if self.terms:
             L += ["## The team's decided terms and names", ""] + [f"- {i}: {v}" for i, v in self.terms] + [""]
+        for k, lines in self.decisions.items():
+            head, intro = DECISIONS[k]
+            L += [f"## {head}", ""] + ([intro.format(name=name), ""] if intro else []) + lines + [""]
         if self.ratio is not None:
             fuller = f"its {name} has about {self.ratio:.1f} words for every source word" if not self.bridged else \
                 f"in its New Testament its {name} has about {self.ratio:.1f} words for every Greek word"

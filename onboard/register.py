@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 """The language's register (shared/register.py): the questionnaire, the seed, the check.
 
-  parameters  register/parameters.tsv from the parameter lists (Grambank, WALS, AutoTyp, APICS: CC BY 4.0; our MT-
-              rows), copied from research into $PRIVATE/lists/ (lab/onboard/*.csv)
-  seed        $PRIVATE/lang/<iso>/register/ from what the language has today:
-                - the language store (cfg "store"): terms, names, formulas, morphs, words, letters, features, claims,
+  parameters  the questionnaire from the parameter lists (Grambank, WALS, AutoTyp, APICS: CC BY 4.0; our MT- rows) in
+              $PRIVATE/lists/, to --out (default: compared with make-tanakh's docs/register/parameters.tsv, which is the
+              questionnaire since v0.5.0; a change goes there as a delivery)
+  seed        $PRIVATE/lang/<iso>/register/ from what the language has today, merged into the register it has:
+                - the language store (cfg "store"; read through make-tanakh's register.store_files, so an old JSON store and a
+                  converted one, profile/register/, read alike): terms, names, formulas, morphs, words, letters, features, claims,
                   gaps and the orthography; superseded entries and statistics (cells, alternation cues) are left out
                 - the team's answers (the store's wiki/team-input.md): one `answer` per item, its words verbatim, and
                   `from` on every entry made from it
                 - register/seed/known.json (research's register values) as features
                 - register/seed/team-questions.md (questions drafted for the team, not sent) as open questions
+              The merge (make-tanakh v0.5.0, the template's register delivery, point 2): an entry the seed makes is taken
+              by id; where the register has the id as a binding team decision with another content, the register's is kept
+              (a conflict in the report); an entry of the store the seed no longer makes is removed unless it is a team
+              decision; entries not from the store (answers, questions, research features: made anew each seed; the team's
+              entries from intake, added by hand) are kept. Without --apply only the report (and the merged register in
+              --out, if given); with it, the register is written and a new revision made (shared/register.write).
   check       the register's rules, the team's terms as the drafter reads them, every team entry tied to its answer
 
-    . ./env.sh; python3 onboard/register.py parameters | seed --lang kvg | check --lang kvg
+    . ./env.sh; python3 onboard/register.py parameters | seed --lang kvg [--apply] | check --lang kvg
 
 The register holds forms of the team's text, so before the freeze it is private (`private/lang/<iso>/register/`); after
 it, the language repository's `.tanakh/register/` (internal-docs/review-feedback-data-plan-2026-11-10.md)."""
@@ -61,10 +69,12 @@ def cmd_parameters(a):
         for field, typ, c in SRC_FIELDS:
             rows.append({"id": f"MT-SRC-{field}-{op}", "question": f"source side: {field.lower()} of {op}", "codes": c, "group": "C2",
                          "type": typ, "source": "make-tanakh (CC0)"})
-    with open(RG.PARAMETERS, "w", encoding="utf-8", newline="") as fh:
+    out = a.out or paths.private("scratch", "parameters.tsv"); os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    with open(out, "w", encoding="utf-8", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=["id", "question", "codes", "group", "type", "source"], delimiter="\t", lineterminator="\n")
         w.writeheader(); w.writerows(rows)
-    print(f"{len(rows)} parameters -> {RG.PARAMETERS}", collections.Counter(r["source"] for r in rows))
+    same = open(out, encoding="utf-8").read() == open(RG.PARAMETERS, encoding="utf-8").read() if os.path.exists(RG.PARAMETERS) else None
+    print(f"{len(rows)} parameters -> {out}; the same as make-tanakh's {RG.PARAMETERS}: {same}", collections.Counter(r["source"] for r in rows))
 
 
 # ------------------------------------------------------------------ the seed
@@ -198,11 +208,11 @@ def cmd_seed(a):
     ans = {e["id"]: e for e in E}
     if store:
         ids = set(); edition = os.path.basename(os.path.dirname(store))
+        files = RG.T.store_files(store)               # the old JSON files, or a converted store read back exactly
         for f in ("observations.json", "decisions.json"):
-            fp = os.path.join(store, f)
-            if not os.path.exists(fp):
+            if f not in files:
                 continue
-            S = json.load(open(fp, encoding="utf-8"))
+            S = files[f]
             for e in S.get("entries", []):
                 if e.get("status") == "superseded":
                     st["superseded, left out"] += 1; continue
@@ -241,9 +251,52 @@ def cmd_seed(a):
         E.append(RG.entry("question", f"q{n}", title, "open", "derived", "agent:research", "2026-11-03", text=text, group=group,
                           origin=f"research:private/profile/{a.lang}/team-questions.md#{n}", note="drafted 2026-11-03, not sent"))
         st["questions"] += 1
-    RG.write(d, E, {"revision": "0.0-seed", "date": TODAY, "language": a.lang,
-                    "seeded from": {"store": cfg.get("store"), "known": "register/seed/known.json (research)", "questions": "register/seed/team-questions.md (research)"}, "left out": {k: v for k, v in st.items() if "left out" in k}})
-    print(json.dumps(dict(st), ensure_ascii=False), "->", d)
+    note = {"seeded": TODAY, "language": a.lang, "store": cfg.get("store"), "known": "register/seed/known.json (research)",
+            "questions": "register/seed/team-questions.md (research)", "left out": {k: v for k, v in st.items() if "left out" in k}}
+    old = RG.load(d) if os.path.isdir(d) else []
+    M, rep = merge(old, E)
+    print(json.dumps({"seed": dict(st), "merge": {k: (len(v) if isinstance(v, list) else v) for k, v in rep.items()}}, ensure_ascii=False))
+    for k in ("kept: a team decision the seed would change", "kept: a team decision the store no longer has"):
+        for x in rep.get(k, [])[:20]:
+            print(f"  {k}: {x}")
+    if a.out:
+        RG.write(a.out, M, {**note, "preview of": d}); print("merged register (preview) ->", a.out)
+    if a.apply:
+        rev, ch = RG.write(d, M, note); print(f"{d}: {rev}, {len(ch)} ids changed")
+    elif not a.out:
+        print("(report only: --apply writes the register, --out DIR a preview)")
+
+
+def merge(old, new):
+    """(entries, report): the register `old` with the seed's entries `new` merged in (the module's docstring)"""
+    by = {e["id"]: e for e in old}; seeded = {e["id"] for e in new}; rep = collections.defaultdict(list)
+    binding = lambda e: e.get("basis") == "team" and e.get("status") == "decided"
+    for e in new:
+        o = by.get(e["id"])
+        if o is None:
+            rep["added"].append(e["id"]); by[e["id"]] = e
+        elif o == e or {k for k in set(o) | set(e) if o.get(k) != e.get(k)} == {"when"}:   # a store entry without a date gets
+            rep["same"].append(e["id"])                                                    # the seed's day: not a change
+        elif binding(o) and not str(o.get("origin") or "").startswith("store-wiki:") and \
+                {k: v for k, v in o.items() if k not in ("from", "note")} != {k: v for k, v in e.items() if k not in ("from", "note")}:
+            rep["kept: a team decision the seed would change"].append(e["id"])
+        else:
+            rep["updated"].append(e["id"]); by[e["id"]] = e
+    for i, o in list(by.items()):
+        if i in seeded:
+            continue
+        if str(o.get("origin") or "").startswith(("store:", "store-wiki:", "research-register:", "research:")):
+            if binding(o) and str(o.get("origin")).startswith("store:"):
+                rep["kept: a team decision the store no longer has"].append(i)
+            else:
+                rep["removed (no longer in the seed)"].append(i); del by[i]
+        else:
+            rep["kept: not from the seed"].append(i)
+    ids = set(by)
+    for e in by.values():                      # answers point only at entries still there
+        if e.get("entries"):
+            e["entries"] = [x for x in e["entries"] if x in ids]
+    return list(by.values()), dict(rep)
 
 
 # ------------------------------------------------------------------ the check
@@ -265,6 +318,13 @@ def cmd_check(a):
     ans = [e for e in E if e["kind"] == "answer"]
     out["answers / with entries"] = [len(ans), sum(bool(e.get("entries")) for e in ans)]
     out["team entries outside terms and names, with an answer"] = sum(bool(e.get("from")) for e in team if e["kind"] not in ("term", "name"))
+    from drafting import devcheck, lexcheck                     # the answer check on the team's whole text (closed chapters never read)
+    if RG.by_lexeme(E) or RG.deprecated(E):
+        for src in ("grc", "hbo"):
+            V = devcheck.team_text(cfg, src)
+            if V:
+                out[f"answer check, the team's text ({src})"] = ac = lexcheck.answer_check({r: ([r], " ".join(ws)) for r, ws in V.items()}, src, E, lambda x: x)
+                ac["conflicts"] = len(ac["conflicts"])
     print(json.dumps(out, ensure_ascii=False, indent=1))
     for x in err[:20]:
         print("ERROR", x)
@@ -274,6 +334,8 @@ def cmd_check(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=("parameters", "seed", "check")); ap.add_argument("--lang")
+    ap.add_argument("--apply", action="store_true", help="seed: write the merged register (a new revision)")
+    ap.add_argument("--out", help="seed: a preview folder for the merged register; parameters: the file to write")
     a = ap.parse_args()
     if a.cmd != "parameters" and not a.lang:
         sys.exit("seed and check need --lang")

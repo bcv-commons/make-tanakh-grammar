@@ -9,6 +9,11 @@ figure beside the dev check's chrF3.
               toneless: the same with the marks dropped (the configuration's "keep_marks" kept)
   unknown     a draft word that occurs nowhere in the team's text outside the chapters drafted and the books left out
 
+The answer check (beside every run, when the language has a register with decided team terms or names): per source word
+whose lexeme a decided term names (its `source`: H<n>, a Greek lemma), whether one of the decided forms (preferred, admitted)
+is in the verse ("found"), and every deprecated or denied form that is ("conflicts", which a draft must not have and the
+team's own text should not: a conflict there is a question for the team).
+
 With --team the same figures for the team's own text of the verses: the ceiling a draft can reach. The team's text of a closed
 or held-out chapter is never read. Per run: runs/<lang>/draft/<book>/<label>/lexcheck.json (word forms: private).
 
@@ -61,6 +66,26 @@ def check_texts(texts, source, L, f, team_vocab):
     return fig, per
 
 
+def answer_check(texts, source, reg, f):
+    """texts {group key: (refs, text)} -> {checked, found, conflicts [[ref, form, entry id]]} against the register's decided terms"""
+    from shared import register as RG
+    by = RG.by_lexeme(reg); bad = {}
+    for e in RG.binding(reg):
+        if e["kind"] in ("term", "name"):
+            for x in RG.forms(e, "deprecated") + list(e.get("denials") or []):
+                bad.setdefault(f(x.lower()), e["id"])
+    refs = {r for rs, _ in texts.values() for r in rs}; S = source_words(source, refs); n = hit = 0; conf = []
+    for key, (rs, text) in texts.items():
+        ws = words_of(text, f)
+        for r in rs:
+            for t in S.get(r, []):
+                es = [e for e in by.get(("grc", t["lemma"]) if source == "grc" else ("hbo", t["strong"]), []) if RG.applies(e, source, t)]
+                if es:
+                    n += 1; hit += any(lexicon.found(f(x.lower()), ws) for e in es for x in RG.forms(e, "preferred", "admitted"))
+        conf += [[rs[0], x, eid] for x, eid in bad.items() if lexicon.found(x, ws)]
+    return {"checked": n, "found": round(hit / n, 3) if n else None, "conflicts": conf}
+
+
 def run_scope(a, label):
     """(chapters drafted, books left out) of a run, from its builds"""
     a.label = label; m = draft.load_manifest(a); chs = set(); leave = set()
@@ -87,9 +112,19 @@ def main():
         out = {"scope": {"chapters": sorted(chs), "left out": sorted(leave), "words.db built": L.built}}
         out["draft"], per = check_texts(texts, source, L, lambda x: x, vocab)
         out["draft, toneless"], _ = check_texts(texts, source, L, lambda x: devcheck.detone(x, keep), vocab_bare)
+        reg = None
+        if cfg.get("_register") and os.path.exists(os.path.join(cfg["_register"], "VERSION.json")):
+            from shared import register as RG
+            reg = RG.load(cfg["_register"])
+            if not RG.by_lexeme(reg) and not RG.deprecated(reg):
+                reg = None
+        if reg:
+            out["answers"] = answer_check(texts, source, reg, lambda x: x)
         if a.team:
             gold = {k: (rs, " ".join(" ".join(V[r]) for r in rs)) for k, (rs, _) in texts.items() if all(r in V for r in rs)}
             out["team"], _ = check_texts(gold, source, L, lambda x: x, vocab)
+            if reg:
+                out["team answers"] = answer_check(gold, source, reg, lambda x: x)
         json.dump({**out, "verses": per}, open(os.path.join(draft.job_dir(a), "lexcheck.json"), "w", encoding="utf-8"), indent=1, ensure_ascii=False)
         res["runs"][label] = out
     print(json.dumps(res, indent=1, ensure_ascii=False))

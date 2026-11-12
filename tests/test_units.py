@@ -81,6 +81,50 @@ class RegisterFiles(unittest.TestCase):
             RG.write(d, E[:1], {"revision": "t2"}); self.assertEqual([e["id"] for e in RG.load(d)], ["word:abc"])
             self.assertEqual(RG.check_files(d), [])
 
+    def test_revisions_and_stamp(self):
+        import tempfile
+        from shared import register as RG
+        E = [RG.entry("word", "abc", "abc", "proposed", "derived", "script:t", "2026-11-10", form="abc")]
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(RG.write(d, E, {"t": 1})[0], "register-1")
+            self.assertEqual(RG.write(d, E)[0], "register-1")                 # nothing changed: no new revision
+            s1 = RG.stamp(d); self.assertEqual((s1["revision"], s1["unreleased"]), ("register-1", 0))
+            rev, ch = RG.write(d, E + [RG.entry("word", "abd", "abd", "proposed", "derived", "script:t", "2026-11-10", form="abd")])
+            self.assertEqual((rev, ch), ("register-2", {"word:abd": "added"}))
+            self.assertNotEqual(RG.stamp(d)["sha256"], s1["sha256"])
+            self.assertEqual(len(open(os.path.join(d, "REVISIONS.jsonl")).read().splitlines()), 2)
+
+
+class Spelling(unittest.TestCase):
+    """the 13th kind (make-tanakh v0.5.0): match, replace, context, exceptions, order, said; orthography.respell names them"""
+    def test_spelling(self):
+        from shared import register as RG
+        sp = RG.entry("spelling", "l-vocal", "l before a consonant is written u", "decided", "team", "team:t", "2026-11-12",
+                      match="l(?=[bcdfg])", replace="u", order=1, said="write u for l before a consonant")
+        o = RG.entry("orthography", "main", "the writing", "proposed", "derived", "script:t", "2026-11-12", respell=["spelling:l-vocal"])
+        self.assertEqual(RG.check([sp, o], params={})[0], [])
+        self.assertEqual(RG.decision_lines([sp])["spelling"], ["- write u for l before a consonant"])
+        bad = dict(sp, match="l(")
+        self.assertTrue(any("pattern" in x for x in RG.check([bad], params={})[0]))
+        self.assertTrue(any("respell" in x for x in RG.check([dict(o, respell=["spelling:none"])], params={})[0]))
+        with self.assertRaises(ValueError):
+            RG.entry("spelling", "x", "y", "proposed", "derived", "script:t", "2026-11-12", **{"to": "u"})
+
+
+class SeedMerge(unittest.TestCase):
+    def test_merge(self):
+        from shared import register as RG
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "onboard"))
+        from onboard.register import merge
+        E = lambda n, v, b="derived", st="proposed", o="store:x/observations.json#": RG.entry("word", n, v, st, b, "script:t", "2026-11-12", origin=o + n)
+        team = E("t", "old", "team", "decided"); gone = E("g", "x"); own = RG.entry("question", "q16", "?", "open", "derived", "agent:t", "2026-11-12")
+        M, rep = merge([team, gone, own, E("u", "1")], [E("t", "new", "team", "decided"), E("u", "2"), E("n", "3")])
+        by = {e["id"]: e for e in M}
+        self.assertEqual(by["word:t"]["value"], "old")                         # the team's decision is kept
+        self.assertEqual(by["word:u"]["value"], "2")                           # the store's update taken
+        self.assertIn("word:n", by); self.assertIn("question:q16", by); self.assertNotIn("word:g", by)
+        self.assertEqual(rep["kept: a team decision the seed would change"], ["word:t"])
+
 
 class SegBundle(unittest.TestCase):
     def test_store_entry(self):
@@ -151,6 +195,64 @@ class Intake(unittest.TestCase):
         self.assertEqual((ov[0][0], ov[0][1]["when"], ov[0][1]["source"]), ("R2.V.p2.0", {"subj_pn": "Third.Singular"}, "team:rule:y"))
 
 
+class Decisions(unittest.TestCase):
+    E = [{"id": "term:x.team", "kind": "term", "value": "tobaru", "status": "decided", "basis": "team", "source": "H3205 / γεννάω",
+          "renderings": [{"form": "tobaru", "status": "preferred"}, {"form": "tobadoru", "status": "admitted"}, {"form": "kelu", "status": "deprecated"}]},
+         {"id": "term:y", "kind": "term", "value": "abc", "status": "proposed", "basis": "derived", "source": "H1"},
+         {"id": "rule:r.team", "kind": "rule", "value": "v", "said": "wazu- marks a counterexpectational verb", "status": "decided", "basis": "team"},
+         {"id": "formula:f.team", "kind": "formula", "value": "pa-oli", "source": "and he said", "status": "decided", "basis": "team"},
+         {"id": "morph:be-:verb.team", "kind": "morph", "value": "OBLIG", "slot": "prefix", "host": "verb", "status": "decided", "basis": "team"}]
+
+    def test_helpers(self):
+        from shared import register as RG
+        self.assertEqual(sorted(RG.by_lexeme(self.E)), [("grc", "γεννάω"), ("hbo", "3205")])
+        self.assertEqual(RG.deprecated(self.E), {"kelu"})
+        self.assertEqual(RG.forms(self.E[0], "preferred", "admitted"), ["tobaru", "tobadoru"])
+        d = RG.decision_lines(self.E)
+        self.assertEqual(d["set phrases"], ["- and he said: pa-oli"])
+        self.assertEqual(d["rules"], ["- wazu- marks a counterexpectational verb", "- be- (prefix, on a verb): OBLIG"])
+        self.assertEqual(RG.decision_lines([self.E[1]]), {})                          # nothing decided by the team: no lines
+        e = {"source": "H3205 (hiphil, fathered) / γεννάω"}
+        self.assertTrue(RG.applies(e, "hbo", {"mood": "hiphil"})); self.assertFalse(RG.applies(e, "hbo", {"mood": "qal"}))
+        self.assertTrue(RG.applies(e, "grc", {"mood": "indicative"}))
+
+    def test_answer_check(self):
+        from unittest import mock
+        from drafting import lexcheck
+        tok = {"cls": "verb", "strong": "3205", "lemma": "ילד", "text": "x"}
+        with mock.patch.object(lexcheck, "source_words", lambda src, refs: {r: [tok] for r in refs}):
+            r = lexcheck.answer_check({"a": (["GEN 5:3"], "mi tobaru"), "b": (["GEN 5:4"], "kelu ka")}, "hbo", self.E, lambda x: x)
+        self.assertEqual((r["checked"], r["found"]), (2, 0.5)); self.assertEqual(r["conflicts"], [["GEN 5:4", "kelu", "term:x.team"]])
+
+
+class PushTemplate(unittest.TestCase):
+    def test_template_files(self):
+        from publish import push as PU
+        for rel in (".github/workflows/validate.yml", "FORMAT.md", ".tanakh/layout.json", ".tanakh/poetry/PSA.json", "LICENSE"):
+            self.assertTrue(PU.TEMPLATE_FILES(rel), rel)
+        for rel in ("README.md", "CODEOWNERS", "roles.json", "RUT/RUT_001.md", ".tanakh/publisher.json", ".tanakh/template.json"):
+            self.assertFalse(PU.TEMPLATE_FILES(rel), rel)
+
+    def test_diff_and_plan(self):
+        import tempfile
+        from unittest import mock
+        from publish import push as PU, repo as R
+        with tempfile.TemporaryDirectory() as t:
+            tpl, bun = os.path.join(t, "tpl"), os.path.join(t, "bundle")
+            for p_, txt in (("tpl/.github/workflows/validate.yml", "new"), ("tpl/README.md", "LANG_NAME"), ("tpl/FORMAT.md", "same"),
+                            ("bundle/RUT/RUT_001.md", "---\nstatus: draft\n---\n1\tA\n"), ("bundle/.tanakh/alternatives/rules/RUT/RUT_001.md", "1\tnew\n")):
+                os.makedirs(os.path.dirname(os.path.join(t, p_)), exist_ok=True); open(os.path.join(t, p_), "w").write(txt)
+            have = {".github/workflows/validate.yml": "old", "README.md": "Kuni", "FORMAT.md": "same",
+                    "RUT/RUT_001.md": "---\nstatus: draft\n---\n1\tA\n", ".tanakh/alternatives/rules/RUT/RUT_001.md": "1\told\n"}
+            repo = mock.Mock(); repo.read = lambda br, rel: have.get(rel); repo.files = lambda br: set(have)
+            with mock.patch.object(R, "template", lambda: tpl):
+                self.assertEqual(PU.template_diff(repo)[1], [".github/workflows/validate.yml"])     # README is the team's
+            with mock.patch.object(PU, "chapter_files", lambda b, bk, ch: (["RUT/RUT_001.md"], [".tanakh/alternatives/rules/RUT/RUT_001.md"])):
+                self.assertEqual(PU.plan(repo, bun, [("RUT", 1, "ok")])[0], {("RUT", 1): "propose"})   # only an alternative changed
+                have[".tanakh/alternatives/rules/RUT/RUT_001.md"] = "1\tnew\n"
+                self.assertEqual(PU.plan(repo, bun, [("RUT", 1, "ok")])[0], {("RUT", 1): "same"})
+
+
 class Tune(unittest.TestCase):
     def test_patch(self):
         from onboard import tune as TU
@@ -160,6 +262,12 @@ class Tune(unittest.TestCase):
         self.assertEqual(TU.patch(S, {"r2_extra_add": ["V.p2.0", "subj_pnc"]})["r2_extra"], {"V.p2.0": ["subj_pnc"]})
         self.assertFalse(TU.applies(S, {"r3_min_share": 0.5})); self.assertTrue(TU.applies(S, {"r3_min_share": 0.4}))
         self.assertEqual(S["r2_base"]["V"], ["tgroup"])                              # S itself unchanged
+
+    def test_top_tie(self):
+        import collections
+        from alternatives import rules_engine as K
+        self.assertEqual(K.top(collections.Counter({"b": 2, "a": 2, "c": 1})), ("a", 2))
+        self.assertEqual(K.top(collections.Counter({"b": 3, "a": 2})), ("b", 3))
 
     def test_trial_chapters(self):
         import tempfile

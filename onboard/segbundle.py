@@ -60,7 +60,7 @@ def build(lang, stats=None, register=None, out=None):
                          "code (morphs.py, bcv_segment.py)": "MIT"},
              "morphs": [store_entry(e) for e in E if e["kind"] == "morph" and splits(e)],
              "words": [store_entry(e) for e in E if e["kind"] == "word" and splits(e)],
-             "orthography": {k: orth[k] for k in RG.KINDS["orthography"][1] if k in orth and k != "keep_marks"} if orth else old["orthography"],
+             "orthography": {k: orth[k] for k in RG.KINDS["orthography"][1] if k in orth and k not in ("keep_marks", "respell")} if orth else old["orthography"],
              "vocab": old["vocab"], "classes": old.get("classes")}
     out = out or paths.lang_dir(lang, "segmenter"); os.makedirs(out, exist_ok=True)
     for f in SPLITTER:

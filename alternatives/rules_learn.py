@@ -116,7 +116,7 @@ def learn_r1(T, R):
         c_cat.setdefault("@" + (t.get("lemma") or ""), c["cat"])
     rules = []
     for k, fc in forms.items():
-        n = sum(fc.values()); sc = stems[k]; top_stem, ns = sc.most_common(1)[0]
+        n = sum(fc.values()); sc = stems[k]; top_stem, ns = K.top(sc)
         cplx = sum(v for (f, h), v in fc.items() if len(f) >= 2) / n >= 0.6
         cands = [(v, f, h) for (f, h), v in fc.items() if (len(f) >= 2) == cplx and stem_of(f[h]) == top_stem] or [(v, f, h) for (f, h), v in fc.items()]
         v, f, h = max(cands)
@@ -143,12 +143,12 @@ def learn_r1(T, R):
                     ln[f"{t['lemma']}|{t['number'][:2]}"][struct(ws[f[1]])] += 1
     fb = []
     for k, c in ln.items():
-        w, n = c.most_common(1)[0]
+        w, n = K.top(c)
         fb.append(dict(kind="R1", sub="lemnum", when={"lemnum": k}, do=dict(form=[list(map(list, w))], head=0, stem=stem_of(w)), n=n,
                        share=round(n / sum(c.values()), 3), source="counts"))
     for name, tab in (("strong", st), ("lemma", lm)):
         for k, c in tab.items():
-            (f, h), n = c.most_common(1)[0]
+            (f, h), n = K.top(c)
             fb.append(dict(kind="R1", sub=name, when={name: k}, do=dict(form=[list(map(list, w)) for w in f], head=h), n=n,
                            share=round(n / sum(c.values()), 3), source="counts"))
     return rules, fb
@@ -193,7 +193,7 @@ def purity(rows, f, slot):
     n = sum(sum(c.values()) for c in allc.values())
     if not n:
         return 0, 0, 0
-    return sum(c.most_common(1)[0][1] for c in by.values()) / n, sum(c.most_common(1)[0][1] for c in allc.values()) / n, n
+    return sum(K.top(c)[1] for c in by.values()) / n, sum(K.top(c)[1] for c in allc.values()) / n, n
 
 
 def learn_r2_r4(T, R, ctx, lexdef, S):
@@ -234,9 +234,9 @@ def learn_surface(T, S):
             for p, s in w:
                 if s != "stem":
                     canon_c[(s, canon(p))][p.lower()] += 1; by_stem[(s, canon(p), st)][p.lower()] += 1
-    default = {f"{s}|{c}": cnt.most_common(1)[0][0] for (s, c), cnt in canon_c.items()}; rules = []
+    default = {f"{s}|{c}": K.top(cnt)[0] for (s, c), cnt in canon_c.items()}; rules = []
     for (s, c, st), cnt in by_stem.items():
-        v, n = cnt.most_common(1)[0]; tot = sum(cnt.values())
+        v, n = K.top(cnt); tot = sum(cnt.values())
         if n >= S["r2_surf_min_n"] and n / tot >= S["r2_surf_min_share"] and v != default.get(f"{s}|{c}"):
             rules.append(dict(kind="R2", sub="surface", when={"slot": s, "canon": c, "stem": st}, do={"value": v}, n=n, share=round(n / tot, 3), source="counts"))
     return K.Table("R2.surface", [["slot", "canon", "stem"]], rules), default
@@ -307,8 +307,8 @@ def learn_r3(T, ctx, S):
         sh = n / nt[trig]; lift = sh / (nw[w] / N)
         if n >= S["r3_min_n"] and sh >= S["r3_min_share"] and lift >= S["r3_min_lift"] and (trig not in best or n > best[trig][1]):
             best[trig] = (w, n, sh, lift)
-    at_of = lambda w: att[w].most_common(1)[0][0] if att[w] else "word"
-    place = lambda trig, w: side[(trig, w)].most_common(1)[0][0] if side[(trig, w)] else "before"
+    at_of = lambda w: K.top(att[w])[0] if att[w] else "word"
+    place = lambda trig, w: K.top(side[(trig, w)])[0] if side[(trig, w)] else "before"
     for trig, (w, n, sh, lift) in best.items():
         rules.append(dict(kind="R3", sub="insert", when={"trigger": trig}, do={"word": w, "place": place(trig, w), "attach": at_of(w)}, n=n,
                           share=round(sh, 3), lift=round(lift, 2), source="counts"))
@@ -489,11 +489,11 @@ def learn_r9(T, S):
     rules = []
     for lv, fields in (("full", ("lemma", "nxt")), ("lemma", ("lemma",)), ("strong", ("strong",))):
         for k, c in cnt[lv].items():
-            n = sum(c.values()); y, m = c.most_common(1)[0]
+            n = sum(c.values()); y, m = K.top(c)
             if n < mn:
                 continue
             if y != "none" and m / n >= ms:
-                rules.append({"kind": "R9", "when": dict(zip(fields, k)), "do": {"word": y, "attach": att[y].most_common(1)[0][0]}, "n": n,
+                rules.append({"kind": "R9", "when": dict(zip(fields, k)), "do": {"word": y, "attach": K.top(att[y])[0]}, "n": n,
                               "share": round(m / n, 3), "source": "counts"})
             elif lv == "full" and y == "none":
                 rules.append({"kind": "R9", "when": dict(zip(fields, k)), "do": {"word": None}, "n": n, "share": round(m / n, 3), "source": "counts"})
