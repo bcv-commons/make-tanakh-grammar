@@ -29,9 +29,9 @@ from publish import align as AL, chapter_format as CF  # noqa: E402
 FA = CF.FA
 
 PARTS_FORMAT = "make-tanakh-parts/1"
-CLAUSE_COLUMNS = {"repo": "bcv-commons/clause-columns", "type": "dataset", "revision": "8a132e44224c83cdaa92fadd93cf440c58552354",
-                  "file": "data/hebrew.parquet", "sha256": "9dcee6765f5ea947fe8d1e0e5be2a9a75b00cf4e82e537d672e06c845826c7bc",
-                  "layout": "bcv-commons/hebrew-clause-layout@514a88320ab6556e0f7fd2e686c9637fcf39bd62", "licence": "CC BY-SA 4.0"}
+CLAUSE_COLUMNS = {"repo": "bcv-commons/clause-columns", "type": "dataset", "revision": "323ef780b1b1b2a6a7216af29574aace5276d840",
+                  "file": "data/hebrew.parquet", "sha256": "9b99aae2442ff9b370ed5492eb3cf9cc4f7896067fcc61ab0d451851dbf2db8a",
+                  "layout": "bcv-commons/hebrew-clause-layout@32f89b719c0fc648320428c8492709c474c17ff2", "licence": "CC BY-SA 4.0"}
 SIMILAR = ("force", "neg", "voice", "person", "number", "line", "speech", "conj", "kind")   # what the rule engine's `when` reads
 GLOSS_TOP = 8
 
